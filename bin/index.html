@@ -1,0 +1,400 @@
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="style.css"/>
+	<script type="text/javascript" src="libs/jquery-latest.min.js"></script>
+	<script type="text/javascript" src="libs/jquery-sortable-min.js"></script>
+	<link rel="stylesheet" type="text/css" href="libs/select2.css"/>
+	<link rel="stylesheet" type="text/css" href="libs/spectrum.css"/>
+	<link rel="stylesheet" type="text/css" href="dock/dockspawn.css"/>
+	<link rel="stylesheet" type="text/css" href="dock/font-awesome.css"/>
+	<script type="text/javascript" src="libs/select2.js"></script>
+	<script type="text/javascript" src="libs/spectrum.js"></script>
+	<script type="text/javascript" src="libs/lz4.js"></script>
+	<script type="text/javascript" src="dock/dockspawn.js"></script>
+</head>
+
+<body>
+
+<div id="helpers">
+
+	<input type="file" id="fileSelect" style="display:none"/>
+
+	<div id="newsheet" class="modal" style="display:none">
+		<div class="content">
+			<form id="sheet_form" onsubmit="return false">
+				<h1>Sheet Props</h1>
+				<p>
+					<span>Sheet Name</span> <input type="text" class="value" id="sheet_name"/>
+				</p>
+				<p>
+					<span>Sheet Type</span>
+					<select class="value" id="sheet_type">
+						<option value="data_table">Data Table</option>
+						<option value="level">Level</option>
+						<option value="gui">GUI</option>
+						<option value="vnchar">VN Char</option>
+					</select>
+				</p>
+				<p class="buttons">
+					<input type="submit" value="Create" onclick="_.createSheet($('#sheet_name').val(), $('#sheet_type').val())"/>
+					<input type="submit" value="Cancel" onclick="$(this).parents('.modal').hide()"/>
+				</p>
+			</form>
+		</div>
+	</div>
+
+	<div id="autosaveconfig" class="modal" style="display:none">
+		<div class="content">
+			<form id="sheet_form" onsubmit="return false">
+				<h1>Autosave Configuration</h1>
+				<p>
+					<span>Enabled</span>
+					<input type="checkbox" class="value" id="enabled"/>
+				</p>
+				<p>
+					<span>Folder</span>
+					<input type="text" class="value" id="folder"/>
+				</p>
+				<p>
+					<span>Interval (seconds)</span>
+					<input type="number" class="value" id="interval"/>
+				</p>
+				<p>
+					<span>Max Backups</span>
+					<input type="number" class="value" id="max_backups"/>
+				</p>
+				<p class="buttons">
+					<input type="submit" value="Save" onclick="_.configureAutosaving(
+						$('#enabled').is(':checked'), 
+						$('#folder').val(), 
+						$('#interval').val(), 
+						$('#max_backups').val()
+					)"/>
+					<input type="submit" value="Cancel" onclick="$(this).parents('.modal').hide()"/>
+				</p>
+			</form>
+		</div>
+	</div>
+
+	<div id="newcol" class="modal" style="display:none">
+		<div class="content">
+			<form id="col_form" onsubmit="return false">
+			<h1>Column Props</h1>
+			<p>
+				<span>Column name</span> <input type="text" name="name"/>
+			</p>
+			<p>
+				<span>Column type</span>
+				<select name="type" onchange="$('#col_options').attr('class','t_'+this.value)">
+				<option value="">---- Choose -----</option>
+				<option value="id">Unique Identifier</option>
+				<option value="string">Text</option>
+				<option value="bool">Boolean</option>
+				<option value="int">Integer</option>
+				<option value="float">Float</option>
+				<option value="enum">Enumeration</option>
+				<option value="flags">Flags</option>
+				<option value="ref">Reference</option>
+				<option value="list">List</option>
+				<option value="properties">Properties</option>
+				<option value="color">Color</option>
+				<option value="file">File</option>
+				<option value="image">Image</option>
+				<option value="tilepos">Tile</option>
+				<option value="dynamic">Dynamic</option>
+				<option value="layer">Data Layer</option>
+				<option value="tilelayer">Tile Layer</option>
+				<option value="custom">Custom Type</option>
+				</select>
+			</p>
+			<div id="col_options">
+				<div class="values"><span>Possible Values</span> <input type="text" name="values" name="vals"/></div>
+				<div class="sheet"><span>Sheet</span> <select name="sheet"></select> </div>
+				<div class="disp"><span>Display</span>
+					<select name="display">
+					<option value="0">Default</option>
+					<option value="1">Percentage</option>
+					</select>
+				</div>
+				<div class="localizable">Localizable <input type="checkbox" name="localizable"/></div>
+				<div class="custom"><span>Type</span> <a href="javascript:_.newType()" class="tcreate">[create]</a> <a href="#" onclick="_.newType($(this).parents('form').find('[name=ctype]').val())" class="tedit">[edit]</a></span> <select name="ctype"></select> </div>
+				<div class="opt">Required <input type="checkbox" name="req"/></div>
+			</div>
+			<p class="buttons">
+				<input class="edit" type="submit" value="Modify" onclick="_.createColumn()"/>
+				<input class="create" type="submit" value="Create" onclick="_.createColumn()"/>
+				<input type="submit" value="Cancel" onclick="$(this).parents('.modal').hide()"/>
+			</p>
+
+			</form>
+		</div>
+	</div>
+
+	<div id="editTypes" style="display:none">
+		<div class="tedit">
+			<input class="button" type="submit" name="apply" value="Apply"/> <input class="button" type="submit" value="Cancel"/>
+			<textarea></textarea>
+		</div>
+	</div>
+
+	<div id="about" class="modal" style="display:none">
+		<div class="content">
+		<h1>About</h1>
+		<p>
+			Version 1.6.1+
+		</p>
+		<p>
+			CastleDB has been created by Nicolas Cannasse
+		</p>
+		<p>
+			Built and maintained here: <a href="https://github.com/dazKind/castle" target="_blank">https://github.com/dazKind/castle</a>
+		</p>
+		<p>
+			<input type="submit" value="Close" onclick="$(this).parents('.modal').hide()"/>
+		</p>
+		</div>
+	</div>
+
+	<div id="menu">
+
+		<div class="errorMsg" style="display:none">
+			ERROR
+		</div>
+
+		<!--<a href="javascript:_.editTypes()">Edit Types</a>
+		<a href="javascript:_.insertLine()">New Line</a>
+		<a href="javascript:_.newColumn()">New Column</a>
+		<a href="javascript:_.newSheet()">New Sheet</a>-->
+
+		<ul class="sheets" id="sheets">
+			<li>Sheet 1</li>
+			<li class="active">Sheet 2</li>
+			<li>Sheet 3</li>
+		</ul>
+
+	</div>
+
+	<div class="box">
+	<div class="tileSelect modal" style="display:none">
+		<div class="content">
+			<div class="menu">
+				Size <input name="size"/>
+				W <input name="width"/>
+				H <input name="height"/>
+				<input name="file" type="submit" value="File..."/>
+				<input name="cancel" type="submit" value="Cancel"/>
+			</div>
+			<div class="tileScroll">
+				<div class="tileView">
+					<div class="tileCursor"></div>
+					<div class="tileCursor current"></div>
+				</div>
+			</div>
+			<div class="tilePath">
+			</div>
+		</div>
+	</div>
+	</div>
+
+	<span class="imagePreview">
+		<div class="message"></div>
+		<div class="previewContent">
+			<div class="label"></div>
+			<img class="imagePreviewIMG"/>
+		</div>
+	</span>
+
+	<div id="paletteContent" style="display:none">
+		<div class="palette">
+			<div class="preview">
+				<canvas width="64" height="64"/>
+			</div>
+			<div class="content">
+				<canvas class="select"></canvas>
+				<canvas class="view"></canvas>
+			</div>
+			<div class="bar">
+				<div class="sel">
+					<div class="icon small" onclick="_.level.paletteOption('small')" title="Reduce"></div>
+				</div>
+				<div class="infos"></div>
+				<div class="mode">
+					<select name="mode" onchange="_.level.paletteOption('mode',this.value)" title="Change tile mode">
+						<option value="t_tile">tile</option>
+						<option value="t_ground">ground</option>
+						<option value="t_border">border</option>
+						<option value="t_object">object</option>
+						<option value="t_group">group</option>
+					</select>
+					<div class="opt tile">
+						<div class="icon random" onclick="_.level.paletteOption('random')" title="Random mode"></div>
+						<div class="icon paint" onclick="_.level.paletteOption('paint')" title="Paint mode"></div>
+						<div class="icon small" onclick="_.level.paletteOption('small')" title="Reduce"></div>
+					</div>
+					<div class="opt create">
+						<div class="icon create" onclick="_.level.paletteOption('toggleMode')" title="Create"></div>
+					</div>
+					<div class="opt delete">
+						<div class="icon delete" onclick="_.level.paletteOption('toggleMode')" title="Delete"></div>
+					</div>
+					<label class="opt name" title="Name for this group">
+						Name:
+						<input type="text" name="name" onblur="this.onchange()" onchange="_.level.paletteOption('name',this.value)"/>
+					</label>
+					<label class="opt value" title="Custom value">
+						Value:
+						<input type="text" name="value" onblur="this.onchange()" onchange="_.level.paletteOption('value',this.value)"/>
+					</label>
+					<label class="opt priority" title="Priority for this ground (higher is above)">
+						Priority:
+						<select name="priority" onchange="_.level.paletteOption('priority',this.value)">
+							<option value="0">0</option>
+							<option value="1">1</option>
+							<option value="2">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+							<option value="5">5</option>
+							<option value="6">6</option>
+						</select>
+					</label>
+					<label class="opt border_in" title="Choose inside ground for this border">
+						In
+						<select name="border_in" onchange="_.level.paletteOption('border_in', this.value)">
+						</select>
+					</label>
+					<label class="opt border_out" title="Choose outside ground for this border">
+						Out
+						<select name="border_out" onchange="_.level.paletteOption('border_out', this.value)">
+						</select>
+					</label>
+					<label class="opt border_mode">
+						Mode
+						<select name="border_mode" onchange="_.level.paletteOption('border_mode', this.value)">
+							<option value="null">Corners</option>
+							<option value="corner">Lower Corners</option>
+							<option value="u">U Corners</option>
+							<option value="bottom">Bottom</option>
+						</select>
+					</label>
+					<div class="opt refList">
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="custom-view-container" style="display:none">
+		<div id="custom-view-header">
+			<div class="options">
+				<input type="submit" value="X"/>
+			</div>
+		</div>
+		<div id="custom-view-content"></div>
+	</div>
+
+	<div id="levelContent" style="display:none">
+		<div class="level">
+			<div class="menu">
+				<ul class="layers">
+				</ul>
+				<div class="options">
+					<input type="submit" value="Options" onclick="_.level.action('options')"/>
+					<input type="submit" value="X" onclick="_.level.action('close')"/>
+					<input name="newlayer" type="submit" value="New Layer" onclick="_.level.action('layer')"/>
+					<div class="cursorPosition"></div>
+				</div>
+			</div>
+			<div class="submenu layer">
+				<div class="item">
+					<label><input type="checkbox" name="visible" onchange="_.level.action('visible',this.checked)"/> Visible</label>
+				</div>
+				<div class="item">
+					<label><input type="checkbox" name="lock" onchange="_.level.action('lock',this.checked)"/> Lock</label>
+				</div>
+				<div class="item">
+					<input type="range" name="alpha" min="0" max="100" onchange="_.level.action('alpha',parseInt(this.value))"/> Alpha
+				</div>
+				<div class="item">
+					<label>Mode:
+						<select name="mode" onchange="_.level.action('mode',this.value)">
+							<option value="tiles">Tiles</option>
+							<option value="ground">Ground</option>
+							<option value="objects">Objects</option>
+						</select>
+					</label>
+				</div>
+				<div class="item">
+					<input name="color"/> Color
+				</div>
+				<div class="item">
+					<label><input type="checkbox" name="lockGrid" onchange="_.level.action('lockGrid',this.checked)"/> Lock Grid</label>
+				</div>
+				<div class="item">
+					<input type="submit" name="file" value="File..." onclick="_.level.action('file')"/>
+				</div>
+				<div class="item">
+					<label>Size <input type="text" name="size" onchange="_.level.action('size',parseInt(this.value))"/>px</label>
+				</div>
+			</div>
+			<div class="submenu options">
+				<div class="item">
+					<label>Tile Size <input type="text" name="tileSize" onchange="_.level.setTileSize(parseInt(this.value))"/></label>
+				</div>
+				<div class="item">
+					<label>X <input type="text" class="small" name="sx"/></label>
+					<label>Y <input type="text" class="small" name="sy"/></label>
+					<input type="submit" value="Scroll" onclick="_.level.scroll(parseInt($(parentNode).find('[name=sx]').val()),parseInt($(parentNode).find('[name=sy]').val()))"/>
+				</div>
+				<div class="item">
+					<label>Value <input type="text" class="small" name="scale"/></label>
+					<input type="submit" value="Scale" onclick="_.level.scale(parseFloat($(parentNode).find('[name=scale]').val()))"/>
+				</div>
+				<div class="item">
+					<input type="submit" value="Cancel" onclick="_.level.action('options')"/>
+				</div>
+			</div>
+			<div class="submenu newlayer">
+				<div class="item">
+					<label>Name <input type="text" name="newName"/></label>
+					<input type="submit" value="Create" onclick="_.level.addNewLayer($(parentNode).find('[name=newName]').val())"/>
+					<input type="submit" value="Cancel" onclick="_.level.action('layer')"/>
+				</div>
+			</div>
+			<div class="scroll">
+				<div class="scrollContent">
+					<div id="cursor"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<div class="castle" id="content">
+<table>
+	<tr class="head">
+		<td>ID</td>
+		<td>Name</td>
+		<td>Description</td>
+		<td>Bool</td>
+		<td>Int</td>
+	</tr>
+	<tr>
+		<td><input type="text" class="edit" value="bla"/></td>
+		<td>Bla bla</td>
+		<td>Can do lorem ipsum</td>
+		<td>X</td>
+		<td>1230</td>
+	</tr>
+</table>
+</div>
+
+<div id="search">
+<input type="text" name="search"/>
+<i class="fa fa-times-circle"></i>
+</div>
+
+<script type="text/javascript" src="castle.js"></script>
+
+</body>
+</html>

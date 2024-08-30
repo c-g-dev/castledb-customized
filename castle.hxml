@@ -1,0 +1,17 @@
+-cp src
+-js bin/castle.js
+-main Main
+
+-lib hxnodejs:git:https://github.com/HaxeFoundation/hxnodejs
+-lib hx3compat:git:https://github.com/HaxeFoundation/hx3compat
+-lib format:git:https://github.com/HaxeFoundation/format
+-lib hxbit:git:https://github.com/HeapsIO/hxbit
+-lib thx.csv
+-lib mime
+
+-lib ludi-commons
+
+-D lz4js
+-D analyzer-optimize
+-dce std
+-D js-es=6
