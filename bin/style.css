@@ -546,6 +546,9 @@ div#menu ul.sheets li.active {
 #content .level .palette .bar .icon.small {
 	background-image : url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAB3RJTUUH3gcPFR0hp0sGYAAAABd0RVh0U29mdHdhcmUAR0xEUE5HIHZlciAzLjRxhaThAAAACHRwTkdHTEQzAAAAAEqAKR8AAAAEZ0FNQQAAsY8L/GEFAAAABmJLR0QA/wD/AP+gvaeTAAAAJElEQVR4nGP4//8/AyWYIs2jBowaQBsDgOA/MZh2Bgx8GJCDARAx1Ueb40dlAAAAAElFTkSuQmCC");
 }
+#content .level .palette .bar .icon.gridFill {
+	background-image : url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYAgMAAACdGdVrAAAADFBMVEUAAAAAAAAAAAD///81VxGEAAAAAnRSTlMAw3T+XjIAAAABYktHRAMRDEzyAAAAKElEQVQI12NgQAFsq5ZIrZrAwLVqhdaqBQxcDBoaDAQoiEqoPtoZBgBLOB+lTACKfAAAAABJRU5ErkJggg==');
+}
 #content .level .palette .bar .mode {
 	vertical-align : top;
 	display : inline-block;
@@ -749,12 +752,18 @@ div#menu ul.sheets li.active {
 	cursor : "url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAB3RJTUUH3gYSDw4zu7+27gAAABd0RVh0U29mdHdhcmUAR0xEUE5HIHZlciAzLjRxhaThAAAACHRwTkdHTEQzAAAAAEqAKR8AAAAEZ0FNQQAAsY8L/GEFAAAABmJLR0QA/wD/AP+gvaeTAAAAEUlEQVR4nGNgQAP/wQAbBw4ANwsL9efVyGMAAAAASUVORK5CYII="),auto";
 }
 #content .level .scroll {
+	width: calc(100% - 200px);
 	padding : 15px;
 	background-color : #666;
 	overflow : scroll;
+	display: inline-block;
 }
 #content .level .scroll .scrollContent {
 	position : relative;
+}
+#content .level .levelSidebar {
+	vertical-align: top;
+	display: inline-block;
 }
 #content .level .scroll .popup {
 	z-index : 1;
@@ -771,6 +780,23 @@ div#menu ul.sheets li.active {
 #content .level .scroll .popup td {
 	min-width : 160px;
 }
+
+.split {
+    display: flex;
+    flex-direction: row;
+}
+
+.gutter {
+    background-color: #eee;
+    background-repeat: no-repeat;
+    background-position: 50%;
+}
+
+.gutter.gutter-horizontal {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==');
+    cursor: col-resize;
+}
+
 #search {
 	display : none;
 	width : 200px;

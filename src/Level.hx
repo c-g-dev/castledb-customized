@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import js.Browser;
 import cdb.SheetTypes;
 import cdb.Data;
 import cdb.Sheet;
@@ -543,6 +544,9 @@ class Level {
 			}
 		case 'mode':
 			setLayerMode(val);
+		case 'layerKind': {
+				currentLayer.props.layerKind = val;
+			}
 		}
 		J(":focus").blur();
 	}
@@ -585,9 +589,12 @@ class Level {
 		var nclear = new MenuItem( { label : "Clear" } );
 		var ndel = new MenuItem( { label : "Delete" } );
 		var nshow = new MenuItem( { label : "Show Only" } );
+		var nhide = new MenuItem( { label : "Hide" } );
+		var nLockOthers = new MenuItem( { label : "Lock Others" } );
+		var nLockAll = new MenuItem( { label : "Lock All" } );
 		var nshowAll = new MenuItem( { label : "Show All" } );
 		var nrename = new MenuItem( { label : "Rename" } );
-		for( m in [nshow, nshowAll, nrename, nclear, ndel] )
+		for( m in [nshow, nshowAll, nhide, nrename, nclear, ndel, nLockOthers, nLockAll] )
 			n.append(m);
 		nclear.click = function() {
 			switch( l.data ) {
@@ -620,6 +627,26 @@ class Level {
 			}
 			draw();
 		};
+		nhide.click = function() {
+			l.visible = false;
+		}
+		nLockAll.click = function() {
+			for( l2 in layers ) {
+				l2.lock = true;
+				l2.comp.toggleClass("locked", true);
+				l2.saveState();
+			}
+			draw();
+		}
+		nLockOthers.click = function() {
+			for( l2 in layers ) {
+				if( l == l2 ) continue;
+				l2.lock = true;
+				l2.comp.toggleClass("locked", true);
+				l2.saveState();
+			}
+			draw();
+		}
 		nshowAll.click = function() {
 			for( l2 in layers ) {
 				l2.visible = true;
@@ -685,7 +712,11 @@ class Level {
 		var page = J("#content");
 		page.html("");
 		content = J(J("#levelContent").html()).appendTo(page);
-
+		Browser.window.setTimeout(() -> {
+			untyped Browser.window.Split(['#content .split_0', '#content .split_1'], {
+				sizes: [80, 20]
+			});
+		}, 0);
 		var mlayers = content.find(".layers");
 		for( index in 0...layers.length ) {
 			var l = layers[index];
@@ -965,6 +996,7 @@ class Level {
 
 	function deleteSelection() {
 		for( l in layers ) {
+			if(!selectVisible && l != currentLayer) continue;
 			if( !l.enabled() ) continue;
 			l.dirty = true;
 			var sx = selection.x;
@@ -1010,6 +1042,7 @@ class Level {
 		var iy = Std.int(dy);
 
 		for( l in layers ) {
+			if(!selectVisible && l != currentLayer) continue;
 			if( !l.enabled() ) continue;
 			var sx = selection.x;
 			var sy = selection.y;
@@ -1189,16 +1222,29 @@ class Level {
 		return false;
 	}
 
+	/*function showLevelSidebar() {
+		//levelSidebar
+		var scroll = content.find(".scroll");
+		var levelSidebar = content.find(".levelSidebar");
+		J(levelSidebar).show();
+		J(scroll).css("width", (Browser.window.innerWidth - 240) + "px");
+	}*/
+
+	public var currentlySelectedObject: Dynamic = null;
 	function editProps( l : LayerData, index : Int ) {
 		if( !hasProps(l) ) return;
 		var o = Reflect.field(obj, l.name)[index];
-		var scroll = content.find(".scrollContent");
-		var popup = J("<div>").addClass("popup").prependTo(scroll);
-		J(js.Browser.window).on("mousedown", function(_) {
+		currentlySelectedObject = o;
+		var levelSidebar = content.find(".levelSidebar");
+		levelSidebar.empty();
+		var popup = J("<div>").addClass("popup").prependTo(levelSidebar);
+		
+		
+		/*J(js.Browser.window).on("mousedown", function(_) {
 			popup.remove();
 			J(js.Browser.window).off("mousedown");
 			if( view != null ) draw();
-		});
+		});*/
 		popup.mousedown(function(e) e.stopPropagation());
 		popup.mouseup(function(e) e.stopPropagation());
 		popup.click(function(e) e.stopPropagation());
@@ -1224,7 +1270,7 @@ class Level {
 			});
 		}
 
-		var x = (o.x + 1) * tileSize * zoomView;
+		/*var x = (o.x + 1) * tileSize * zoomView;
 		var y = (o.y + 1) * tileSize * zoomView;
 		var cw = width * tileSize * zoomView;
 		var ch = height * tileSize * zoomView;
@@ -1238,7 +1284,8 @@ class Level {
 		if( x + popup.width() > scroll.scrollLeft() + scroll.width() - 20 ) x = scroll.scrollLeft() + scroll.width() - 20 - popup.width();
 		if( y + popup.height() > scroll.scrollTop() + scroll.height() - 20) y = scroll.scrollTop() + scroll.height() - 20 - popup.height();
 
-		popup.css( { marginLeft : Std.int(x) + "px", marginTop : Std.int(y) + "px" } );
+		popup.css( { marginLeft : Std.int(x) + "px", marginTop : Std.int(y) + "px" } );*/
+		draw();
 	}
 
 	function updateZoom( ?f ) {
@@ -1708,7 +1755,19 @@ class Level {
 					}
 					changed = true;
 				}
-			} else {
+			} 
+			else if( palette.gridFill ) {
+				var startX = x % 2 == 0 ? x : x - 1;
+				var startY = y % 2 == 0 ? y : y - 1;
+				var p = startX + (startY * width);
+				var id = l.current + 1;
+				data[p] = id;
+				data[p + 1] = id;
+				data[p + width] = id;
+				data[p + width + 1] = id;
+				changed = true;
+			}	
+			else {
 				for( dy in 0...l.currentHeight )
 					for( dx in 0...l.currentWidth ) {
 						var p = x + dx + (y + dy) * width;
@@ -1780,7 +1839,28 @@ class Level {
 				continue;
 			l.draw(view);
 		}
+		if(gridOn){
+			drawGrid(view, 64, 64);
+		}
 		view.flush();
+	}
+
+	public function drawGrid(view: lvl.Image3D, cellWidth: Int, cellHeight: Int) {
+		var width = view.width;
+		var height = view.height;
+		var col = 0xFF000000; // Grid color: black with full opacity
+	
+		for (x in 0...width) {
+			if (x % cellWidth == 0) {
+				view.fillRect(x, 0, 1, height, col); // Vertical lines
+			}
+		}
+	
+		for (y in 0...height) {
+			if (y % cellHeight == 0) {
+				view.fillRect(0, y, width, 1, col); // Horizontal lines
+			}
+		}
 	}
 
 	public function save() {
@@ -1833,6 +1913,18 @@ class Level {
 			l.scroll(dx, dy);
 		}
 		save();
+		draw();
+	}
+
+	var gridOn: Bool = false;
+	@:keep function toggleGrid( tf: Bool ) {
+		gridOn = tf;
+		draw();
+	}
+
+	var selectVisible: Bool = false;
+	@:keep function toggleSelectVisible( tf: Bool ) {
+		selectVisible = tf;
 		draw();
 	}
 
@@ -1893,6 +1985,7 @@ class Level {
 		content.find("[name=lock]").prop("checked", l.lock);
 		content.find("[name=lockGrid]").prop("checked", !l.floatCoord).closest(".item").css( { display : l.hasFloatCoord ? "" : "none" } );
 		content.find("[name=mode]").val("" + (l.props.mode != null ? l.props.mode : LayerMode.Tiles));
+		content.find("[name=layerKind]").val("" + (l.props.layerKind != null ? l.props.layerKind : "background"));
 		var tmp : Dynamic = content.find("[name=color]");
 		var css = { display : (l.idToIndex == null || ((l.images == null || l.hasSize) && l.colors == null)) && !l.data.match(Tiles(_) | TileInstances(_)) ? "" : "none" };
 		tmp.spectrum("set", toColor(l.props.color)).closest(".item").css(css);

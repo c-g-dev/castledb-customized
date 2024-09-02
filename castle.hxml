@@ -10,6 +10,7 @@
 -lib mime
 
 -lib ludi-commons
+-lib hscript
 
 -D lz4js
 -D analyzer-optimize

@@ -641,6 +641,9 @@ div#menu {
 			.icon.small {
 				background-image : url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAB3RJTUUH3gcPFR0hp0sGYAAAABd0RVh0U29mdHdhcmUAR0xEUE5HIHZlciAzLjRxhaThAAAACHRwTkdHTEQzAAAAAEqAKR8AAAAEZ0FNQQAAsY8L/GEFAAAABmJLR0QA/wD/AP+gvaeTAAAAJElEQVR4nGP4//8/AyWYIs2jBowaQBsDgOA/MZh2Bgx8GJCDARAx1Ueb40dlAAAAAElFTkSuQmCC');
 			}
+			.icon.grid {
+				background-image : url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYAgMAAACdGdVrAAAADFBMVEUAAAAAAAAAAAD///81VxGEAAAAAnRSTlMAw3T+XjIAAAABYktHRAMRDEzyAAAAKElEQVQI12NgQAFsq5ZIrZrAwLVqhdaqBQxcDBoaDAQoiEqoPtoZBgBLOB+lTACKfAAAAABJRU5ErkJggg==');
+			}
 			.mode {
 				vertical-align : top;
 				display : inline-block;

@@ -13,7 +13,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-//import custom.charbuilder.CharBuilderCustomView;
+
+import js.Browser;
 import system.System;
 import system.Autosave;
 import custom.charbuilder.CharBuilderCustomView;
@@ -121,6 +122,9 @@ class Main extends Model {
 		var t = new haxe.Timer(1000);
 		t.run = checkTime;
 		this.customViewRenderer = new CustomViewRenderer(this);
+		J(Browser.document).on("contextmenu", function (e) {
+			e.preventDefault();
+		});
 	}
 
 	function searchFilter( filter : String ) {

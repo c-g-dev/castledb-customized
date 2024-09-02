@@ -92,6 +92,15 @@ class Image {
 		invalidate();
 	}
 
+	public function drawCircle( x : Float, y : Float, r : Float, color : Int ) {
+		ctx.strokeStyle = getColor(color);
+		ctx.beginPath();
+		ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+		ctx.stroke();
+		invalidate();
+	}
+
+
 	public function sub( x : Int, y : Int, w : Int, h : Int ) {
 		var i = new Image(w, h);
 		i.ctx.drawImage(origin, x, y, w, h, 0, 0, w, h);

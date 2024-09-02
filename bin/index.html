@@ -10,6 +10,7 @@
 	<script type="text/javascript" src="libs/select2.js"></script>
 	<script type="text/javascript" src="libs/spectrum.js"></script>
 	<script type="text/javascript" src="libs/lz4.js"></script>
+	<script type="text/javascript" src="libs/split.min.js"></script>
 	<script type="text/javascript" src="dock/dockspawn.js"></script>
 </head>
 
@@ -229,6 +230,7 @@
 					<div class="opt tile">
 						<div class="icon random" onclick="_.level.paletteOption('random')" title="Random mode"></div>
 						<div class="icon paint" onclick="_.level.paletteOption('paint')" title="Paint mode"></div>
+						<div class="icon gridFill" onclick="_.level.paletteOption('gridFill')" title="Fill grid cell"></div>
 						<div class="icon small" onclick="_.level.paletteOption('small')" title="Reduce"></div>
 					</div>
 					<div class="opt create">
@@ -350,6 +352,12 @@
 					<input type="submit" value="Scale" onclick="_.level.scale(parseFloat($(parentNode).find('[name=scale]').val()))"/>
 				</div>
 				<div class="item">
+					<label>Show Grid <input type="checkbox" name="showGrid" onchange="_.level.toggleGrid(this.checked)"/></label>
+				</div>
+				<div class="item">
+					<label>Select Visible <input type="checkbox" name="selectVisible" onchange="_.level.toggleSelectVisible(this.checked)"/></label>
+				</div>
+				<div class="item">
 					<input type="submit" value="Cancel" onclick="_.level.action('options')"/>
 				</div>
 			</div>
@@ -360,11 +368,16 @@
 					<input type="submit" value="Cancel" onclick="_.level.action('layer')"/>
 				</div>
 			</div>
-			<div class="scroll">
-				<div class="scrollContent">
-					<div id="cursor"></div>
+			<div id="layerDisplay" class="split">
+				<div class="scroll split_0">
+					<div class="scrollContent">
+						<div id="cursor"></div>
+					</div>
 				</div>
-			</div>
+				<div class="levelSidebar split_1">
+					
+				</div>
+			</div> 
 		</div>
 	</div>
 

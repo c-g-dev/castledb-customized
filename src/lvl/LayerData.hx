@@ -80,6 +80,7 @@ class LayerData extends LayerGfx {
 				for( l in props.layers )
 					if( l.l == this.name && l.p.color != null ) {
 						this.props.color = l.p.color;
+						this.props.layerKind = l.p.layerKind;
 						props = null;
 						break;
 					}
@@ -152,7 +153,13 @@ class LayerData extends LayerGfx {
 	}
 
 	public function setObjectsData( id, val ) {
-		data = Objects(id, val);
+		if(val == null) {
+			data = Objects(id, []);
+		}
+		else {
+			data = Objects(id, val);
+		}
+		
 	}
 
 	public function setTilesData( val : cdb.Types.TileLayer ) {
@@ -500,111 +507,129 @@ class LayerData extends LayerGfx {
 		m.y += Math.abs(m.b * w * 0.5 + m.d * h * 0.5);
 	}
 
+	private function invertColor(c: Int): Int {
+		return (c >> 16) & 0xFF | ((c >> 8) & 0xFF) << 8 | (c & 0xFF) << 16 | 0xFF000000;
+	}
+
 	public function draw( view : lvl.Image3D ) {
 		view.alpha = props.alpha;
 		var width = level.width;
 		var height = level.height;
 		var size = level.tileSize;
 		switch( data ) {
-		case Layer(data):
-			var first = @:privateAccess level.layers[0] == this; // firstLayer : no transparency
-			for( y in 0...height )
-				for( x in 0...width ) {
-					var k = data[x + y * width];
-					if( k == 0 && !first ) continue;
-					if( images != null ) {
-						var i = images[k];
-						view.draw(i, x * size - ((i.width - size) >> 1), y * size - (i.height - size));
-						continue;
-					}
-					view.fillRect(x * size, y * size, size, size, colors[k] | 0xFF000000);
-				}
-		case Tiles(t, data):
-			for( y in 0...height )
-				for( x in 0...width ) {
-					var k = data[x + y * width] - 1;
-					if( k < 0 ) continue;
-					view.draw(images[k], x * size, y * size);
-				}
-			if( props.mode == Ground ) {
-				var b = new cdb.TileBuilder(tileProps, stride, images.length);
-				var a = b.buildGrounds(data, width);
-				var p = 0, max = a.length;
-				while( p < max ) {
-					var x = a[p++];
-					var y = a[p++];
-					var id = a[p++];
-					view.draw(images[id], x * size, y * size);
-				}
-			}
-		case TileInstances(_, insts):
-			var objs = getTileObjects();
-			var mat = { a : 1., b : 0., c : 0., d : 1., x : 0., y : 0. };
-			for( i in insts ) {
-				var x = Std.int(i.x * size), y = Std.int(i.y * size);
-				var obj = objs.get(i.o);
-				var w = obj == null ? 1 : obj.w;
-				var h = obj == null ? 1 : obj.h;
-				initMatrix(mat, w * size, h * size, i.rot, i.flip);
-				mat.x += x;
-				mat.y += y;
-				if( obj == null ) {
-					view.drawMat(images[i.o], mat);
-					view.fillRect(x, y, size, size, 0x80FF0000);
-				} else {
-					var px = mat.x;
-					var py = mat.y;
-					for( dy in 0...obj.h )
-						for( dx in 0...obj.w ) {
-							mat.x = px + dx * size * mat.a + dy * size * mat.c;
-							mat.y = py + dx * size * mat.b + dy * size * mat.d;
-							view.drawMat(images[i.o + dx + dy * stride], mat);
+			case Layer(data):
+				var first = @:privateAccess level.layers[0] == this; // firstLayer : no transparency
+				for( y in 0...height )
+					for( x in 0...width ) {
+						var k = data[x + y * width];
+						if( k == 0 && !first ) continue;
+						if( images != null ) {
+							var i = images[k];
+							view.draw(i, x * size - ((i.width - size) >> 1), y * size - (i.height - size));
+							continue;
 						}
-				}
-			}
-		case Objects(idCol, objs):
-			if( idCol == null ) {
-				var col = props.color | 0xA0000000;
-				for( o in objs ) {
-					var w = hasSize ? o.width * size : size;
-					var h = hasSize ? o.height * size : size;
-					view.fillRect(Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h), col);
-				}
-				var col = props.color | 0xFF000000;
-				for( o in objs ) {
-					var w = hasSize ? Std.int(o.width * size) : size;
-					var h = hasSize ? Std.int(o.height * size) : size;
-					var px = Std.int(o.x * size);
-					var py = Std.int(o.y * size);
-					view.fillRect(px, py, w, 1, col);
-					view.fillRect(px, py + h - 1, w, 1, col);
-					view.fillRect(px, py + 1, 1, h - 2, col);
-					view.fillRect(px + w - 1, py + 1, 1, h - 2, col);
-				}
-			} else {
-				for( o in objs ) {
-					var w   = Std.int(hasSize ? o.width  * size : size);
-					var h   = Std.int(hasSize ? o.height * size : size);
-					var px  = Std.int(o.x * size);
-					var py  = Std.int(o.y * size);
-
-					var col = props.color;
-					var id : String = Reflect.field(o, idCol);
-					var k = idToIndex.get(id);
-					if ( k != null && colors != null ) col = colors[k];
-
-					if( hasSize || images == null || k == null ) {
-						view.fillRect(px, py, w, h, col | 0xA0000000);
-						var col = col | 0xFF000000;
-						view.fillRect(px, py, w, 1, col);
-						view.fillRect(px, py + h - 1, w, 1, col);
-						view.fillRect(px, py + 1, 1, h - 2, col);
-						view.fillRect(px + w - 1, py + 1, 1, h - 2, col);
+						view.fillRect(x * size, y * size, size, size, colors[k] | 0xFF000000);
 					}
-
-					if( images != null && k != null ) {
-						var i = images[k];
-						view.draw(i, px, py);
+			case Tiles(t, data):
+				for( y in 0...height )
+					for( x in 0...width ) {
+						var k = data[x + y * width] - 1;
+						if( k < 0 ) continue;
+						view.draw(images[k], x * size, y * size);
+					}
+				if( props.mode == Ground ) {
+					var b = new cdb.TileBuilder(tileProps, stride, images.length);
+					var a = b.buildGrounds(data, width);
+					var p = 0, max = a.length;
+					while( p < max ) {
+						var x = a[p++];
+						var y = a[p++];
+						var id = a[p++];
+						view.draw(images[id], x * size, y * size);
+					}
+				}
+			case TileInstances(_, insts):
+				var objs = getTileObjects();
+				var mat = { a : 1., b : 0., c : 0., d : 1., x : 0., y : 0. };
+				for( i in insts ) {
+					var x = Std.int(i.x * size), y = Std.int(i.y * size);
+					var obj = objs.get(i.o);
+					var w = obj == null ? 1 : obj.w;
+					var h = obj == null ? 1 : obj.h;
+					initMatrix(mat, w * size, h * size, i.rot, i.flip);
+					mat.x += x;
+					mat.y += y;
+					if( obj == null ) {
+						view.drawMat(images[i.o], mat);
+						view.fillRect(x, y, size, size, 0x80FF0000);
+					} else {
+						var px = mat.x;
+						var py = mat.y;
+						for( dy in 0...obj.h )
+							for( dx in 0...obj.w ) {
+								mat.x = px + dx * size * mat.a + dy * size * mat.c;
+								mat.y = py + dx * size * mat.b + dy * size * mat.d;
+								view.drawMat(images[i.o + dx + dy * stride], mat);
+							}
+					}
+				}
+			case Objects(idCol, objs): {
+				if(objs != null){
+					if( idCol == null ) {
+						for( o in objs ) {
+							var col = props.color | 0x50000000;
+							var w = hasSize ? o.width * size : size;
+							var h = hasSize ? o.height * size : size;
+							if(o != this.level.currentlySelectedObject){
+								view.fillRect(Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h), col);
+							}
+							else {
+								var col = props.color | 0xFF000000;
+								view.fillRect(Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h), col);
+							}
+						}
+						var col = props.color | 0xFF000000;
+						for( o in objs ) {
+							var w = hasSize ? Std.int(o.width * size) : size;
+							var h = hasSize ? Std.int(o.height * size) : size;
+							var px = Std.int(o.x * size);
+							var py = Std.int(o.y * size);
+							view.fillRect(px, py, w, 1, col);
+							view.fillRect(px, py + h - 1, w, 1, col);
+							view.fillRect(px, py + 1, 1, h - 2, col);
+							view.fillRect(px + w - 1, py + 1, 1, h - 2, col);
+						}
+					} else {
+						for( o in objs ) {
+							var w   = Std.int(hasSize ? o.width  * size : size);
+							var h   = Std.int(hasSize ? o.height * size : size);
+							var px  = Std.int(o.x * size);
+							var py  = Std.int(o.y * size);
+	
+							var col = props.color;
+							var id : String = Reflect.field(o, idCol);
+							var k = idToIndex.get(id);
+							if ( k != null && colors != null ) col = colors[k];
+	
+							if( hasSize || images == null || k == null ) {
+								if(o != this.level.currentlySelectedObject){
+									view.fillRect(px, py, w, h, col | 0x50000000);	
+								}
+								else {
+									view.fillRect(px, py, w, h, col | 0xFF000000);	
+								}
+								var col = props.color | 0xFF000000;
+								view.fillRect(px, py, w, 1, col);
+								view.fillRect(px, py + h - 1, w, 1, col);
+								view.fillRect(px, py + 1, 1, h - 2, col);
+								view.fillRect(px + w - 1, py + 1, 1, h - 2, col);
+							}
+	
+							if( images != null && k != null ) {
+								var i = images[k];
+								view.draw(i, px, py);
+							}
+						}
 					}
 				}
 			}

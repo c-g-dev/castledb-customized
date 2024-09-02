@@ -39,6 +39,7 @@ class Palette {
 	public var randomMode : Bool = false;
 	public var mode  : Null<String> = null;
 	public var modeCursor : Int = 0;
+	public var gridFill: Bool = false;
 
 	public function new(level) {
 		this.level = level;
@@ -593,6 +594,7 @@ class Palette {
 		return null;
 	}
 
+	
 	public function option( name : String, ?val : String ) {
 		if( p == null )
 			return false;
@@ -612,6 +614,11 @@ class Palette {
 			if( l.data.match(TileInstances(_)) ) paintMode = false;
 			level.savePrefs();
 			p.find(".icon.paint").toggleClass("active", paintMode);
+			return false;
+		case "gridFill":
+			gridFill = !gridFill;
+			level.savePrefs();
+			p.find(".icon.gridFill").toggleClass("active", gridFill);
 			return false;
 		case "mode":
 			mode = val == "t_tile" ? null : val;

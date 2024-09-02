@@ -70,6 +70,7 @@ typedef LayerProps = {
 	var alpha : Float;
 	@:optional var mode : LayerMode;
 	@:optional var color : Int;
+	@:optional var layerKind : String;
 }
 
 enum abstract TileMode(String) {
