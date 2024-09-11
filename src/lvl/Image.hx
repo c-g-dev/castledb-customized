@@ -111,8 +111,10 @@ class Image {
 	}
 
 	public function text( text : String, x : Int, y : Int, color : Int = 0xFFFFFFFF ) {
-		ctx.fillStyle = getColor(color);
-		ctx.fillText(text, x, y);
+		ctx.fillStyle =  getColor(color);
+		ctx.font = "bold 16px Arial";
+		ctx.textAlign = 'center';
+		ctx.fillText(text, x, y + 8);
 		invalidate();
 	}
 

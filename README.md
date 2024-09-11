@@ -4,9 +4,19 @@ This is a clone of https://github.com/dazKind/castle which is a fork of https://
 
 ### Customizations
 
+#### Plugin system
+hscript plugins can be placed in a ./plugins folder to extend the functionality. Right now the plugin types all have to do with the tilemap mode, with options to:
+
+1) Change the Edit Props form depending on the selected object
+2) Change the display of an object on the level
+3) Add scripts which can be chosen from the dropdown
+
+
+
+![alt text](image-3.png)
 
 #### Custom Views and Custom Sheet Types
-The biggest customization is the CustomView system which allows for different sheet types, plugin-style. Just like the tilemap sheets of the original Castle DB launch an entire different editor, the CustomView system provides an easy way to write your own "sheet types" to launch per-row GUI controls. This lets CastleDB truly be an "everything" database. Check custom.CustomView.hx for info. It is currently working but the interface definitely needs some work. I'll add some examples once the concrete sets a little more.
+The CustomView system allows for different sheet types, plugin-style. Just like the tilemap sheets of the original Castle DB launch an entire different editor, the CustomView system provides an easy way to write your own "sheet types" to launch per-row GUI controls. This lets CastleDB truly be an "everything" database. Check custom.CustomView.hx for info. It is currently working but the interface definitely needs some work. I'll add some examples once the concrete sets a little more.
 
 ![alt text](image.png)
 ![alt text](image-1.png)

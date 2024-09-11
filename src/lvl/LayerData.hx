@@ -14,6 +14,8 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 package lvl;
+import system.plugins.util.LevelObjectPluginContext;
+import system.plugins.kinds.Display_LevelObjectPlugin.LevelObjectDisplayUtil;
 import cdb.Data;
 import cdb.Sheet;
 
@@ -580,13 +582,15 @@ class LayerData extends LayerGfx {
 							var col = props.color | 0x50000000;
 							var w = hasSize ? o.width * size : size;
 							var h = hasSize ? o.height * size : size;
-							if(o != this.level.currentlySelectedObject){
+							if(this.level.currentContext == null || o != this.level.currentContext.rowObject){
 								view.fillRect(Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h), col);
 							}
 							else {
 								var col = props.color | 0xFF000000;
 								view.fillRect(Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h), col);
 							}
+							LevelObjectDisplayUtil.apply(LevelObjectPluginContext.createForLevelObjectDisplay(this, view, Std.int(o.x * size), Std.int(o.y * size), o));
+							//LevelObjectDisplayPlugins.handle(this.name, o, view, Std.int(o.x * size), Std.int(o.y * size), Std.int(w), Std.int(h));
 						}
 						var col = props.color | 0xFF000000;
 						for( o in objs ) {
@@ -598,6 +602,7 @@ class LayerData extends LayerGfx {
 							view.fillRect(px, py + h - 1, w, 1, col);
 							view.fillRect(px, py + 1, 1, h - 2, col);
 							view.fillRect(px + w - 1, py + 1, 1, h - 2, col);
+							
 						}
 					} else {
 						for( o in objs ) {
@@ -612,12 +617,13 @@ class LayerData extends LayerGfx {
 							if ( k != null && colors != null ) col = colors[k];
 	
 							if( hasSize || images == null || k == null ) {
-								if(o != this.level.currentlySelectedObject){
+								if(this.level.currentContext == null || o != this.level.currentContext.rowObject){
 									view.fillRect(px, py, w, h, col | 0x50000000);	
 								}
 								else {
 									view.fillRect(px, py, w, h, col | 0xFF000000);	
 								}
+								LevelObjectDisplayUtil.apply(LevelObjectPluginContext.createForLevelObjectDisplay(this, view, Std.int(o.x * size), Std.int(o.y * size), o));
 								var col = props.color | 0xFF000000;
 								view.fillRect(px, py, w, 1, col);
 								view.fillRect(px, py + h - 1, w, 1, col);

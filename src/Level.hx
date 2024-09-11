@@ -13,6 +13,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import system.plugins.kinds.EditProps_LevelObjectPlugin.EditPropsUtil;
+import system.plugins.kinds.Script_LevelObjectPlugin.LevelObjectScriptUtil;
+import system.plugins.util.LevelObjectPluginContext;
+import haxe.Json;
+import lvl.Image;
 import js.Browser;
 import cdb.SheetTypes;
 import cdb.Data;
@@ -58,7 +63,7 @@ class Level {
 	var content : JQuery;
 	var props : LevelProps;
 
-	var currentLayer : LayerData;
+	public var currentLayer : LayerData;
 	var cursor : JQuery;
 	var cursorImage : lvl.Image;
 	var tmpImage : lvl.Image;
@@ -477,6 +482,9 @@ class Level {
 		var l = currentLayer;
 		switch( name ) {
 		case "close":
+			if(currentContext != null) {
+				currentContext.cleanup();
+			}
 			cast(model, Main).closeLevel(this);
 		case 'options':
 			var opt = content.find(".submenu.options");
@@ -1230,11 +1238,13 @@ class Level {
 		J(scroll).css("width", (Browser.window.innerWidth - 240) + "px");
 	}*/
 
-	public var currentlySelectedObject: Dynamic = null;
+	public var currentContext: LevelObjectPluginContext = null;
 	function editProps( l : LayerData, index : Int ) {
+		if(currentContext != null) {
+			currentContext.cleanup();
+		}
 		if( !hasProps(l) ) return;
 		var o = Reflect.field(obj, l.name)[index];
-		currentlySelectedObject = o;
 		var levelSidebar = content.find(".levelSidebar");
 		levelSidebar.empty();
 		var popup = J("<div>").addClass("popup").prependTo(levelSidebar);
@@ -1269,6 +1279,13 @@ class Level {
 				e.stopPropagation();
 			});
 		}
+
+		currentContext = LevelObjectPluginContext.createForLevelObjectProps(this, l, index);
+
+		var scriptDropdown = LevelObjectScriptUtil.buildScriptDropdown(currentContext);
+		levelSidebar.prepend(scriptDropdown);
+
+		EditPropsUtil.renderPlugin(currentContext);
 
 		/*var x = (o.x + 1) * tileSize * zoomView;
 		var y = (o.y + 1) * tileSize * zoomView;
@@ -1841,7 +1858,7 @@ class Level {
 		}
 		if(gridOn){
 			drawGrid(view, 64, 64);
-		}
+		} 
 		view.flush();
 	}
 
@@ -2097,5 +2114,7 @@ class Level {
 		canvas.style.marginLeft = -px + "px";
 		canvas.style.marginTop = -py + "px";
 	}
+
+	
 
 }

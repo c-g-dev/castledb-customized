@@ -1,88 +1,142 @@
 package system.plugins;
 
+import system.plugins.impl.Common.ClearScript_Script_Plugin;
+import system.plugins.impl.Warp.Warp_EditProps_Plugin;
+import system.plugins.impl.Warp.Warp_Display_Plugin;
+import system.plugins.impl.Shadow.Shadow_EditProps_Plugin;
+import system.plugins.impl.Shadow.Shadow_Display_Plugin;
+import system.plugins.util.ScriptUtils;
+import system.plugins.kinds.Script_LevelObjectPlugin.CreateNewObjectScript;
+import lvl.LayerData;
+import system.plugins.impl.Textbox.CreateTextbox_Script_Plugin;
+import system.plugins.impl.Textbox.Textbox_Display_Plugin;
+import system.plugins.impl.Textbox.Textbox_EditProps_Plugin;
+import lvl.Image3D;
+import system.plugins.util.LevelUtils;
+import haxe.macro.Type.Ref;
+import js.html.Element;
+import util.Toast;
+import js.html.OptionElement;
+import cdb.Sheet;
+import js.jquery.JQuery;
 import haxe.Json;
 import haxe.io.Path;
 import sys.io.File;
 
 using StringTools;
 
-typedef Plugin = {
-    name: String,
-    type: String,
-    plugin: Dynamic
+abstract class Plugin {
+	public abstract function getType():String;
 }
 
-typedef LevelEditPropsPlugin_AppliesToObject = {}
-typedef LevelEditPropsPlugin_Render = {}
-typedef LevelEditPropsPlugin_WriteToSheet = {}
+@:forward
+abstract RowObject(Dynamic) from Dynamic to Dynamic {
+	public static var STATE_CACHE:Array<{layerData:LayerData, idx:Int, rowObject:RowObject}> = [];
 
-typedef LevelEditPropsPlugin = {
-    appliesToObject: LevelEditPropsPlugin_AppliesToObject -> Bool,
-    render: LevelEditPropsPlugin_Render -> Void,
-    writeToSheet: LevelEditPropsPlugin_WriteToSheet -> Void
+	function new(rowObject:Dynamic) {
+		this = rowObject;
+	}
+
+	public static function fromLayerData(layerData:LayerData, idx:Int):RowObject {
+		@:privateAccess var obj = new RowObject(Reflect.field(layerData.level.obj, layerData.name)[idx]);
+		STATE_CACHE.push({layerData: layerData, idx: idx, rowObject: new RowObject(obj)});
+		return obj;
+	}
+
+	public static function fromTransient(obj:Dynamic):RowObject {
+		return new RowObject(obj);
+	}
+
+	public function molt():RowObject {
+		for (eachRow in STATE_CACHE) {
+			if (eachRow.rowObject == this) {
+				@:privateAccess eachRow.rowObject = new RowObject(Reflect.field(eachRow.layerData.level.obj, eachRow.layerData.name)[eachRow.idx]);
+				return eachRow.rowObject;
+			}
+		}
+		return this;
+	}
+
+	public function commit(?remove:Bool = true):Void {
+		for (eachRow in STATE_CACHE) {
+			if (eachRow.rowObject == this) {
+				@:privateAccess Reflect.field(eachRow.layerData.level.obj, eachRow.layerData.name)[eachRow.idx] = this;
+				if (remove) {
+					STATE_CACHE.remove(eachRow);
+				}
+			}
+		}
+	}
 }
 
 class Plugins {
-    public static var LOADED: Map<String, Array<Plugin>> = new Map<String, Array<Plugin>>();
-    static final PLUGIN_DIRECTORY = "plugins";
+	public static var LOADED:Map<String, Array<Plugin>> = new Map<String, Array<Plugin>>();
+	static final PLUGIN_DIRECTORY = "./plugins";
+	static var GLOBAL:Dynamic = {};
 
-    public static function loadAll() {
-        var dir = sys.FileSystem.readDirectory(PLUGIN_DIRECTORY);
-        for (file in dir) {
-            if (file.endsWith(".hx")) {
-                load(file);
-            }
-        }
-    }
+	public static function loadAll(model:Model) {
+		/*trace("Plugins.loadAll");
+			var dir = sys.FileSystem.readDirectory(PLUGIN_DIRECTORY);
+			for (file in dir) {
+				trace("found file: " + file);
+				if (file.endsWith(".hx")) {
+					trace("loading plugin: " + file);
+					try {
+						load(PLUGIN_DIRECTORY + "/" + file);
+						trace("Successfully loaded plugin: " + file);
+					} catch (e) {
+						trace("Error loading plugin: " + file + " \n" + e);
+					}
+				}
+		}*/
+		/*addGlobalVar("levelUtils", new LevelUtils(model.base));
+			addGlobalVar("scriptUtils", new ScriptUtils(model.base));
+			addPlugin(LevelEditPropsPlugin_FACTORY(GLOBAL)); */
 
-    public static function load(filePath: String) {
-        var pluginFile = File.getContent(filePath);
+			
+		addPlugin(new Shadow_EditProps_Plugin());
+		addPlugin(new Shadow_Display_Plugin());
+		addPlugin(new CreateNewObjectScript("events", "Warp", "script", {script: new ScriptUtils(null).serializeScript(Warp("", 0, Instant))}));
+		addPlugin(new CreateNewObjectScript("other", "Shadow", "kind", {kind: "shadow"}));
+		addPlugin(new CreateTextbox_Script_Plugin());
+		addPlugin(new Textbox_Display_Plugin());
+		addPlugin(new Textbox_EditProps_Plugin());
+		addPlugin(new Warp_Display_Plugin());
+		addPlugin(new Warp_EditProps_Plugin());
+		addPlugin(new ClearScript_Script_Plugin());
+		
+	}
 
-        var parser = new hscript.Parser();
-        var ast = parser.parseString(pluginFile);
-        var interp = new hscript.Interp();
-        var pluginObject: Plugin = interp.execute(ast);
+	public static function addPlugin(plugin:Plugin) {
+		if (!LOADED.exists(plugin.getType())) {
+			LOADED.set(plugin.getType(), new Array<Plugin>());
+		}
 
-        var type = pluginObject.type;
+		LOADED.get(plugin.getType()).push(plugin);
+	}
 
-        if (!LOADED.exists(type)) {
-            LOADED.set(type, new Array<Plugin>());
-        }
+	public static function addGlobalVar(key:String, value:Dynamic) {
+		Reflect.setField(GLOBAL, key, value);
+	}
 
-        LOADED.get(type).push(pluginObject);
-        
-    }
+	public static function load(filePath:String) {
+		var pluginFile = sys.io.File.getContent(filePath);
 
-}
+		var parser = new hscript.Parser();
+		var ast = parser.parseString(pluginFile);
+		var interp = new hscript.Interp();
+		interp.variables.set("Global", GLOBAL);
+		var ret = interp.execute(ast);
+		// if ret is array
+		var loadedPlugins:Array<Plugin> = [];
+		if (ret is Array) {
+			loadedPlugins = ret;
+		} else {
+			loadedPlugins = [cast ret];
+		}
 
-var testPluginLoad: LevelEditPropsPlugin = {
-    appliesToObject: (args) -> { 
-        return args.layerName == "events" && args.object.script.contains("Textbox");
-    },
-    render: (args) -> { 
-        args.util.hideDefault();
-        args.util.addHeader("Textbox");
-        args.util.addProp("Kind", "dropdown", ["OnInteract", "OnWalk"]);
-        args.util.addProp("Text", "text");
-        args.util.addShowAllPropsButton();
-    },
-    writeToSheet: (args) -> { 
-        args.util.writeDefaultProps();
-        var text = args.util.getProp("Text");
-        var kind = args.util.getProp("Kind");
-        args.object.script = [1, text];
-        if( kind == "OnInteract" ) {
-            args.object.eventType = [0];
-        }
-        else if( kind == "OnWalk" ) {
-            args.object.eventType = [1];
-        }
-        args.util.commitObject();
-    },
-}
-
-var testPlugin: Plugin = {
-    name: "Textbox",
-    type: "LevelEditPropsPlugin",
-    plugin: testPluginLoad
+		for (pluginObject in loadedPlugins) {
+			addPlugin(pluginObject);
+		}
+	}
 }

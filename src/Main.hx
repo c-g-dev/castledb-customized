@@ -14,6 +14,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+import system.plugins.Plugin.Plugins;
 import js.Browser;
 import system.System;
 import system.Autosave;
@@ -125,6 +126,7 @@ class Main extends Model {
 		J(Browser.document).on("contextmenu", function (e) {
 			e.preventDefault();
 		});
+		Plugins.loadAll(this);
 	}
 
 	function searchFilter( filter : String ) {
