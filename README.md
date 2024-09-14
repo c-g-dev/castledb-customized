@@ -5,11 +5,17 @@ This is a clone of https://github.com/dazKind/castle which is a fork of https://
 ### Customizations
 
 #### Plugin system
-hscript plugins can be placed in a ./plugins folder to extend the functionality. Right now the plugin types all have to do with the tilemap mode, with options to:
+hscript plugins can be placed in a ./plugins folder to extend the functionality.
 
-1) Change the Edit Props form depending on the selected object
-2) Change the display of an object on the level
-3) Add scripts which can be chosen from the dropdown
+Database plugins:
+
+  1) Add custom scripts to context menu based on database sheet
+
+Tilemap mode plugins:
+
+  1) Change the Edit Props form depending on the selected object
+  2) Change the display of an object on the level
+  3) Add scripts which can be chosen from the dropdown
 
 
 
