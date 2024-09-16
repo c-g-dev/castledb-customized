@@ -2,38 +2,12 @@ This is a WIP repo which includes all my personal setup for Castle DB with many 
 
 This is a clone of https://github.com/dazKind/castle which is a fork of https://github.com/ncannasse/castle meant to modernize the original Castle DB. I already have a fork of dazKind's repo with an open PR and instead of juggling branches/orgs to maintain the change tree I'm just cloning. These changes aren't designed to merge up anyway.
 
+If you are interested in an expidited public release, you can email me at cgdev@airmail.cc and let me know. Right now this is just my dumping ground for all my current personal changes, which is updated erratically, and may or may not even work correctly on pull. But if there is a legitimate interest from anyone for this repo I will prioritize it.
+
 FYI this repo will NOT be compatible with the CastleDB macro system. In general I don't support the use of the normal CastleDB macro system and would advise to use code generators instead.
 
-### Customizations
+## Customizations
 
-### Query system
-
-It took me a while to even notice that CastleDB didn't support a SQL-like query engine. I've baked a basic one in which can be accessed programmatically or through hscript plaintext. It doesn't actually implement SQL, it just exposes a static API which maps to basic SQL commands.
-
-```haxe
-Insert("my_table",
-  Select("*", "my_table", (row) -> row.id == 1)
-);
-
-Update("my_table", {
-  field1: "hello",
-  field2: "world"
-},  (row) -> row.id == 1);
-
-Update("my_table",
-  Select(["field1", "field2"], "my_table", (row) -> row.id == 1)
-,  (row) -> row.id == 1);
-
-//DML operations
-
-CreateTable("new_table",
-{
-  id: TId,
-  data: TString
-});
-
-DropTable("new_table");
-```
 
 #### Plugin system
 hscript plugins can be placed in a ./plugins folder to extend the functionality.
