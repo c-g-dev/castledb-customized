@@ -37,7 +37,34 @@ Backups saved automatically
 
 ![alt text](image-2.png)
 
+### Query system
 
+CastleDB DOES have an unfinished SQL implementation in the source code. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript. (btw finishing Nicolas Cannasse's SqlParser.hx would probably be a great project for anyone looking for some street cred).
+
+```haxe
+Insert("my_table",
+  Select("*", "my_table", (row) -> row.id == 1)
+);
+
+Update("my_table", {
+  field1: "hello",
+  field2: "world"
+},  (row) -> row.id == 1);
+
+Update("my_table",
+  Select(["field1", "field2"], "my_table", (row) -> row.id == 1)
+,  (row) -> row.id == 1);
+
+//DML operations
+
+CreateTable("new_table",
+{
+  id: TId,
+  data: TString
+});
+
+DropTable("new_table");
+```
 
 # dazKind's documentation:
 
