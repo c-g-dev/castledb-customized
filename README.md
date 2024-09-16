@@ -39,7 +39,7 @@ Backups saved automatically
 
 ### Query system
 
-CastleDB DOES have an unfinished SQL implementation in the source code. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript. (btw finishing Nicolas Cannasse's SqlParser.hx would probably be a great project for anyone looking for some street cred).
+CastleDB DOES have an unfinished SQL implementation in the source code but it is completely nonfunctional. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript. (btw finishing Nicolas Cannasse's SqlParser.hx would probably be a great project for anyone looking for some street cred).
 
 ```haxe
 Insert("my_table",
