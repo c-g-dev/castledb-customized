@@ -8,6 +8,7 @@
 -lib hxbit:git:https://github.com/HeapsIO/hxbit
 -lib thx.csv
 -lib mime
+-lib hx-sql-parser
 
 -lib ludi-commons
 -lib hscript

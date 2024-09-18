@@ -1065,9 +1065,11 @@ class Database {
 		data.sheets = [for( s in sheets ) @:privateAccess s.sheet];
 	}
 
-	public function deleteSheet( sheet : Sheet ) {
+	public function deleteSheet( sheet : Sheet, ?removeData: Bool = true ) {
 		sheets.remove(sheet);
-		updateSheets();
+		if(removeData){
+			updateSheets();
+		}
 		smap.remove(sheet.name);
 		for( c in sheet.columns )
 			switch( c.type ) {
@@ -1081,6 +1083,17 @@ class Database {
 			default: t;
 			}
 		});
+	}
+
+	public function syncbackData() {
+		for( s in sheets ){
+			//deleteSheet(s, false);
+			deleteSheet(s, true);
+		}
+		for( s in data.sheets ){
+			this.addSheet(s, data.sheets.indexOf(s));
+		}
+		this.save();
 	}
 
 }

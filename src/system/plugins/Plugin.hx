@@ -1,5 +1,6 @@
 package system.plugins;
 
+import system.plugins.impl.menus.SQLQueryMenu;
 import system.plugins.impl.Common.ClearScript_Script_Plugin;
 import system.plugins.impl.Warp.Warp_EditProps_Plugin;
 import system.plugins.impl.Warp.Warp_Display_Plugin;
@@ -104,7 +105,7 @@ class Plugins {
 		addPlugin(new Warp_Display_Plugin());
 		addPlugin(new Warp_EditProps_Plugin());
 		addPlugin(new ClearScript_Script_Plugin());
-		
+		addPlugin(new SQLQueryMenu(model));
 	}
 
 	public static function addPlugin(plugin:Plugin) {

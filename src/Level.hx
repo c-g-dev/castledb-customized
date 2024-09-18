@@ -975,6 +975,11 @@ class Level {
 					setCursor();
 					return;
 				}
+				else if( o.x <= px && px <= o.x + o.width && o.y <= py && py <= o.y + o.height && w <= 1 && h <= 1 ) {
+					editProps(l, i);
+					setCursor();
+					return;
+				}
 			}
 			var o : { x : Float, y : Float, ?width : Float, ?height : Float } = { x : px, y : py };
 			objs.push(o);

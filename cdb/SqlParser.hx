@@ -1,419 +1,557 @@
-/*
- * Copyright (c) 2015, Nicolas Cannasse
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
- * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
 package cdb;
 
-enum Token {
-	CInt( v : Int );
-	CFloat( v : Float );
-	Kwd( s : String );
-	Ident( s : String );
-	Star;
-	Eof;
-	POpen;
-	PClose;
-	Comma;
-	Op( op : Binop );
+import cdb.SqlLexer.Token;
+
+
+enum SqlCommand {
+    Select( fields: Array<Field>, fromClause: FromClause, whereClause: Array<Condition> );
+    Update( table: String, setFields: Array<SetField>, whereClause: Array<Condition> );
+    Insert( table: String, insertValue: InsertValue );
+    Delete( table: String, whereClause: Array<Condition> );
+    CreateTable( table: String, fields: Array<FieldDesc>);
+    AlterTable( table: String, alters: Array<AlterCommand> );
+    DropTable( table: String );
 }
 
-enum Binop {
-	Eq;
+enum FromClause {
+    Table(table: String);
+    Query(command: SqlCommand);
+    InnerJoin(left: FromClause, right: FromClause, on: Array<Condition>);
+    OuterJoin(left: FromClause, right: FromClause, on: Array<Condition>);
 }
 
-enum Expr {
-	True;
+enum SqlValue {
+    Value<T>(kind: SqlType<T>, value: T);
+    Query(command: SqlCommand);
 }
 
 typedef Field = {
-	@:optional public var table : Null<String>;
-	@:optional public var field : Null<String>;
-	@:optional public var all : Null<Bool>;
+    table: String,
+    field: String,
+    all: Bool,
 }
 
-enum SqlType {
-	SInt;
-	SVarChar( n : Int );
-	SDate;
-	SDateTime;
-	SDouble;
-	STinyText;
-	STinyInt;
-	SMediumText;
+typedef SetField = {
+    field: String,
+    value: String
+}
+
+typedef FieldAssignment = {
+    field: Field,
+    value: SqlValue
+}
+
+enum InsertValue {
+    Row(fields: Array<FieldAssignment>);
+    Multiple(rows: Array<InsertValue>);
+    Query(command: SqlCommand);
 }
 
 typedef FieldDesc = {
-	var name : String;
-	@:optional var type : SqlType;
-	@:optional var notNull : Bool;
-	@:optional var autoIncrement : Bool;
-	@:optional var digits : Int;
+    name: String,
+    type: SqlType<Dynamic>
 }
 
-enum TableProp {
-	PrimaryKey( field : Array<String> );
-	Engine( name : String );
+typedef WhereClause = Array<Condition>;
+
+enum Condition {
+    Relational(field: String, binop: String, value: SqlValue);
+    IsNull(field: String);
+    IsNotNull(field: String);
+    And(left: Condition, right: Condition);
+    Or(left: Condition, right: Condition);
 }
 
-enum FKDelete {
-	FKDSetNull;
-	FKDCascade;
+enum Binop {
+    Eq;
+    Neq;
+    Gt;
+    GtEq;
+    Lt;
+    LtEq;
+    Like;
+    NotLike;
+    In;
+    NotIn;
+}
+
+enum SqlType<T> {
+    INT: SqlType<Int>;
+    STRING: SqlType<String>;
+    DATE: SqlType<Date>;
+    BOOLEAN: SqlType<Bool>;
+    FLOAT: SqlType<Float>;
+    OTHER( name: String ): SqlType<Dynamic>;
+    UNKNOWN: SqlType<Dynamic>;
 }
 
 enum AlterCommand {
-	AddConstraintFK( name : String, field : String, table : String, targetField : String, ?onDelete : FKDelete );
+    RenameTo( name: String );
+    AddColumn( name: String, type: SqlType<Dynamic> );
+    DropColumn( name: String );
+    ModifyColumn( name: String, type: SqlType<Dynamic> );
+    RenameColumn( oldName: String, newName: String );
 }
 
-enum Query {
-	Select( fields : Array<Field>, table : String, cond : Expr );
-	CreateTable( table : String, fields : Array<FieldDesc>, props : Array<TableProp> );
-	AlterTable( table : String, alters : Array<AlterCommand> );
-}
 
 class SqlParser {
 
-	static var KWDS = [
-		"ALTER", "SELECT", "UPDATE", "WHERE", "CREATE", "FROM", "TABLE", "NOT", "NULL", "PRIMARY", "KEY", "ENGINE", "AUTO_INCREMENT",
-		"ADD", "CONSTRAINT", "FOREIGN", "REFERENCES", "ON", "DELETE", "SET", "NULL", "CASCADE",
-	];
+    private var tokens: Array<Token>;
+    private var pos: Int;
 
-	var query : String;
-	var pos : Int;
-	var keywords : Map<String,Bool>;
-	var sqlTypes : Map<String, SqlType>;
-	var idChar : Array<Bool>;
-	var cache : Array<Token>;
+    public function parse(args: Array<Token>): Array<SqlCommand> {
+        tokens = args;
+        pos = 0;
+        var commands = new Array<SqlCommand>();
+        while (pos < tokens.length) {
+            commands.push(parseCommand());
+        }
+        return commands;
+    }
 
-	public function new() {
-		idChar = [];
-		for( i in 'A'.code...'Z'.code + 1 )
-			idChar[i] = true;
-		for( i in 'a'.code...'z'.code + 1 )
-			idChar[i] = true;
-		for( i in '0'.code...'9'.code + 1 )
-			idChar[i] = true;
-		idChar['_'.code] = true;
-		keywords = [for( k in KWDS ) k => true];
-		sqlTypes = [
-			"DATE" => SDate,
-			"DOUBLE" => SDouble,
-			"INT" => SInt,
-			"TINYTEXT" => STinyText,
-			"MEDIUMTEXT" => SMediumText,
-			"TINYINT" => STinyInt,
-			"DATETIME" => SDateTime,
-		];
-	}
+    private function parseCommand(): SqlCommand {
+        var token = nextToken();
+        switch(token) {
+            case Token.Kwd("SELECT"): {
+                return parseSelect();
+            }
+            case Token.Kwd("UPDATE"): {
+                return parseUpdate();
+            }
+            case Token.Kwd("INSERT"): {
+                return parseInsert();
+            }
+            case Token.Kwd("DELETE"): {
+                return parseDelete();
+            }
+            case Token.Kwd("CREATE"): {
+                return parseCreate();
+            }
+            case Token.Kwd("ALTER"): {
+                return parseAlter();
+            }
+            case Token.Kwd("DROP"): {
+                return parseDrop();
+            }
+            case Token.Eof: {
+                throw "Unexpected end of input";
+            }
+            default: {
+                throw "Unexpected token: " + Std.string(token);
+            }
+        }
+    }
 
-	public function parse( q : String ) {
-		this.query = q;
-		this.pos = 0;
-		cache = [];
-		#if neko
-		try {
-			return parseQuery();
-		} catch( e : Dynamic ) {
-			neko.Lib.rethrow(e+" in " + q);
-			return null;
-		}
-		#else
-		return parseQuery();
-		#end
-	}
+    private function parseSelect(): SqlCommand {
+        // Parse fields
+        var fields = new Array<Field>();
+        var token = nextToken();
+        if (token == Token.Star) {
+            fields.push({table: "", field: "", all: true});
+            token = nextToken();
+        } else {
+            while (token != Token.Kwd("FROM")) {
+                switch token {
+                    case Ident(s): {
+                        var field = { table: "", field: s, all: false };
+                        fields.push(field);
+                        token = nextToken();
+                        if (token == Token.Comma) {
+                            token = nextToken();
+                        }
+                    }
+                    default: throw "Unexpected token in SELECT fields: " + Std.string(token);
+                }
+            }
+        }
 
-	inline function push(t) {
-		cache.push(t);
-	}
+        // Parse from clause
+        if (token != Token.Kwd("FROM")) {
+            throw "Expected FROM, found: " + Std.string(token);
+        }
+        var fromClause = parseFromClause();
 
-	inline function nextChar() {
-		return StringTools.fastCodeAt(query, pos++);
-	}
+        // Parse where clause if present
+        var whereClause = new Array<Condition>();
+        token = peekToken();
+        if (token == Token.Kwd("WHERE")) {
+            whereClause = parseWhereClause();
+        }
+        
+        return SqlCommand.Select(fields, fromClause, whereClause);
+    }
 
-	inline function isIdentChar( c : Int ) {
-		return idChar[c];
-	}
+    private function parseUpdate(): SqlCommand {
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
 
-	function invalidChar(c) {
-		throw "Unexpected char '" + String.fromCharCode(c)+"'";
-	}
+        // Parse SET keyword
+        var token = nextToken();
+        if (token != Token.Kwd("SET")) {
+            throw "Expected SET, found: " + Std.string(token);
+        }
 
-	function token() {
-		var t = cache.pop();
-		if( t != null ) return t;
-		while( true ) {
-			var c = nextChar();
-			switch( c ) {
-			case ' '.code, '\r'.code, '\n'.code, '\t'.code:
-				continue;
-			case '*'.code:
-				return Star;
-			case '('.code:
-				return POpen;
-			case ')'.code:
-				return PClose;
-			case ','.code:
-				return Comma;
-			case '='.code:
-				return Op(Eq);
-			case '`'.code:
-				var start = pos;
-				do {
-					c = nextChar();
-				} while( isIdentChar(c) );
-				if( c != '`'.code )
-					throw "Unclosed `";
-				return Ident(query.substr(start, (pos - 1) - start));
-			case '0'.code, '1'.code, '2'.code, '3'.code, '4'.code, '5'.code, '6'.code, '7'.code, '8'.code, '9'.code:
-				var n = (c - '0'.code) * 1.0;
-				var exp = 0.;
-				while( true ) {
-					c = nextChar();
-					exp *= 10;
-					switch( c ) {
-					case 48,49,50,51,52,53,54,55,56,57:
-						n = n * 10 + (c - 48);
-					case '.'.code:
-						if( exp > 0 )
-							invalidChar(c);
-						exp = 1.;
-					default:
-						pos--;
-						var i = Std.int(n);
-						return (exp > 0) ? CFloat(n * 10 / exp) : ((i == n) ? CInt(i) : CFloat(n));
-					}
-				}
-			default:
-				if( (c >= 'A'.code && c <= 'Z'.code) || (c >= 'a'.code && c <= 'z'.code) ) {
-					var start = pos - 1;
-					do {
-						c = nextChar();
-					} while( #if neko c != null #end && isIdentChar(c) );
-					pos--;
-					var i = query.substr(start, pos - start);
-					var iup = i.toUpperCase();
-					if( keywords.exists(iup) )
-						return Kwd(iup);
-					return Ident(i);
-				}
-				if( StringTools.isEof(c) )
-					return Eof;
-				invalidChar(c);
-			}
-		}
-	}
+        // Parse set fields
+        var setFields = new Array<SetField>();
+        while (true) {
+            var field = nextToken();
+            if (!(field.match(Token.Ident(_)))) {
+                throw "Expected field name in SET clause";
+            }
 
-	function tokenStr(t) {
-		return switch( t ) {
-		case Kwd(k): k;
-		case Ident(k): k;
-		case Star: "*";
-		case Eof: "<eof>";
-		case POpen: "(";
-		case PClose: ")";
-		case Comma: ",";
-		case Op(o): opStr(o);
-		case CInt(i): "" + i;
-		case CFloat(f): "" + f;
-		};
-	}
+            token = nextToken();
+            if (!token.match(Token.Op(Eq))) {
+                throw "Expected = in SET clause";
+            }
 
-	function opStr( op : Binop ) {
-		return switch( op ) {
-		case Eq: "=";
-		}
-	}
+            var value = nextToken();
+            if (!(value.match(Token.Ident(_))) && !(value.match(Token.CInt(_))) && !(value.match(Token.CFloat(_)))) {
+                throw "Expected value in SET clause";
+            }
 
-	function req(tk:Token) {
-		var t = token();
-		if( !Type.enumEq(t,tk) ) unexpected(t);
-	}
+            switch field {
+                case Ident(s): {
+                    setFields.push({field: s, value: Std.string(value)});
+                }
+                default:
+            }
+            
 
-	function unexpected(t) : Dynamic {
-		throw "Unexpected " + tokenStr(t);
-		return null;
-	}
+            token = peekToken();
+            if (token != Token.Comma) {
+                break;
+            }
+            nextToken(); // consume the comma
+        }
 
-	function ident() : String {
-		return switch( token() ) {
-		case Ident(i): i;
-		case t: unexpected(t);
-		}
-	}
+        // Parse where clause if present
+        var whereClause = new Array<Condition>();
+        token = peekToken();
+        if (token == Token.Kwd("WHERE")) {
+            whereClause = parseWhereClause();
+        }
 
-	function eof() {
-		var t = token();
-		if( t != Eof ) unexpected(t);
-	}
+        switch table {
+            case Ident(s): {
+                return SqlCommand.Update(s, setFields, whereClause);
+            }
+            default: throw "Expected table name";
+        }
+       
+    }
 
-	function parseQuery() : Query {
-		var t = token();
-		switch( t ) {
-		case Kwd("SELECT"):
-			var fields = [];
-			while( true ) {
-				switch( token() ) {
-				case Star:
-					fields.push( { all : true } );
-				case t:
-					unexpected(t);
-				}
-				switch( token() ) {
-				case Kwd("FROM"):
-					break;
-				case t:
-					unexpected(t);
-				}
-			}
-			var table = ident();
-			var cond = switch( token() ) {
-			case Eof: True;
-			case Kwd("WHERE"): parseExpr();
-			case t: unexpected(t);
-			}
-			eof();
-			return Select(fields, table, cond);
-		case Kwd("CREATE"):
-			switch( token() ) {
-			case Kwd("TABLE"):
-				var table = ident();
-				var fields = [], props = [];
-				req(POpen);
-				while( true ) {
-					switch( token() ) {
-					case Ident(name):
-						var f : FieldDesc = { name : name };
-						fields.push(f);
-						while( true ) {
-							var t = token();
-							switch( t ) {
-							case Kwd("NOT"):
-								req(Kwd("NULL"));
-								f.notNull = true;
-								continue;
-							case Kwd("AUTO_INCREMENT"):
-								f.autoIncrement = true;
-								continue;
-							case Ident(i), Kwd(i) if( f.type == null ):
-								var st = sqlTypes.get(i.toUpperCase());
-								if( st != null ) {
-									f.type = st;
-									switch( token() ) {
-									case POpen:
-										switch( token() ) {
-										case CInt(v): f.digits = v;
-										case t: unexpected(t);
-										}
-										req(PClose);
-									case t: push(t);
-									}
-									continue;
-								}
-							default:
-							}
-							push(t);
-							break;
-						}
-					case Kwd("PRIMARY"):
-						req(Kwd("KEY"));
-						req(POpen);
-						var key = [];
-						while( true ) {
-							key.push(ident());
-							switch( token() ) {
-							case PClose: break;
-							case Comma: continue;
-							case t: unexpected(t);
-							}
-						}
-						props.push(PrimaryKey(key));
-					case t: unexpected(t);
-					}
-					switch( token() ) {
-					case Comma: continue;
-					case PClose: break;
-					case t: unexpected(t);
-					}
-				}
-				while( true ) {
-					switch( token() ) {
-					case Eof: break;
-					case Kwd("ENGINE"):
-						req(Op(Eq));
-						props.push(Engine(ident()));
-					case t:
-						unexpected(t);
-					}
-				}
-				return CreateTable(table, fields, props);
-			default:
-			}
-		case Kwd("ALTER"):
-			req(Kwd("TABLE"));
-			var table = ident();
-			var cmds = [];
-			while( true ) {
-				switch( token() ) {
-				case Eof: break;
-				case Kwd("ADD"):
-					switch( token() ) {
-					case Kwd("CONSTRAINT"):
-						var cname = ident();
-						req(Kwd("FOREIGN"));
-						req(Kwd("KEY"));
-						req(POpen);
-						var field = ident();
-						req(PClose);
-						req(Kwd("REFERENCES"));
-						var target = ident();
-						req(POpen);
-						var tfield = ident();
-						req(PClose);
-						var onDel = null;
-						switch( token() ) {
-						case Kwd("ON"):
-							req(Kwd("DELETE"));
-							switch( token() ) {
-							case Kwd("SET"):
-								req(Kwd("NULL"));
-								onDel = FKDSetNull;
-							case Kwd("CASCADE"):
-								onDel = FKDCascade;
-							case t:
-								unexpected(t);
-							}
-						case t:
-							push(t);
-						}
-						cmds.push(AddConstraintFK(cname, field, target, tfield, onDel));
-					case t: unexpected(t);
-					}
-				case t: unexpected(t);
-				}
-			}
-			return AlterTable(table, cmds);
-		default:
-		}
-		throw "Unsupported query " + query;
-	}
+    private function parseInsert(): SqlCommand {
+        // Parse INTO keyword
+        var token = nextToken();
+        if (token != Token.Kwd("INTO")) {
+            throw "Expected INTO, found: " + Std.string(token);
+        }
 
-	function parseExpr() : Expr {
-		var t = token();
-		switch( t ) {
-		default:
-			unexpected(t);
-		}
-		return null;
-	}
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
+
+        // Parse values
+        token = nextToken();
+        if (token != Token.Kwd("VALUES")) {
+            throw "Expected VALUES, found: " + Std.string(token);
+        }
+
+        var insertValue = parseInsertValue();
+
+        return SqlCommand.Insert(extractValue(table), insertValue);
+    }
+
+    private function parseDelete(): SqlCommand {
+        // Parse FROM keyword
+        var token = nextToken();
+        if (token != Token.Kwd("FROM")) {
+            throw "Expected FROM, found: " + Std.string(token);
+        }
+
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
+
+        // Parse where clause if present
+        var whereClause = new Array<Condition>();
+        token = peekToken();
+        if (token == Token.Kwd("WHERE")) {
+            whereClause = parseWhereClause();
+        }
+
+        return SqlCommand.Delete(extractValue(table), whereClause);
+    }
+
+    private function parseCreate(): SqlCommand {
+        // Parse TABLE keyword
+        var token = nextToken();
+        if (token != Token.Kwd("TABLE")) {
+            throw "Expected TABLE, found: " + Std.string(token);
+        }
+
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
+
+        // Parse fields
+        var fields = new Array<FieldDesc>();
+        if (nextToken() != Token.POpen) {
+            throw "Expected ( after table name";
+        }
+        while (true) {
+            var fieldName = nextToken();
+            if (!(fieldName.match(Token.Ident(_)))) {
+                throw "Expected field name";
+            }
+
+            var fieldType = nextToken();
+            if (!(fieldType.match(Token.Ident(_)))) {
+                throw "Expected field type";
+            }
+
+            fields.push(
+                {
+                    name: extractValue(fieldName),
+                    type: parseSqlType(extractValue(fieldType))
+                }
+            );
+
+            token = nextToken();
+            if (token == Token.PClose) {
+                break;
+            }
+            if (token != Token.Comma) {
+                throw "Expected , or ) in field list";
+            }
+        }
+
+        return SqlCommand.CreateTable(extractValue(table), fields);
+    }
+
+    private function parseAlter(): SqlCommand {
+        // Parse TABLE keyword
+        var token = nextToken();
+        if (token != Token.Kwd("TABLE")) {
+            throw "Expected TABLE, found: " + Std.string(token);
+        }
+
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
+
+        // Parse alter commands
+        var alters = new Array<AlterCommand>();
+        while (pos < tokens.length) {
+            token = nextToken();
+            switch (token) {
+                case Token.Kwd("RENAME"): {
+                    var to = nextToken();
+                    if (to != Token.Kwd("TO")) {
+                        throw "Expected TO after RENAME";
+                    }
+                    var newName = nextToken();
+                    if (!(newName.match(Token.Ident(_)))) {
+                        throw "Expected new table name";
+                    }
+                    alters.push(AlterCommand.RenameTo(extractValue(newName)));
+                }
+                case Token.Kwd("ADD"): {
+                    var column = nextToken();
+                    if (column != Token.Kwd("COLUMN")) {
+                        throw "Expected COLUMN after ADD";
+                    }
+                    var columnName = nextToken();
+                    if (!(columnName.match(Token.Ident(_)))) {
+                        throw "Expected column name";
+                    }
+                    var columnType = nextToken();
+                    if (!(columnType.match(Token.Ident(_)))) {
+                        throw "Expected column type";
+                    }
+                    alters.push(AlterCommand.AddColumn(extractValue(columnName), parseSqlType(extractValue(columnType))));
+                }
+                case Token.Kwd("DROP"): {
+                    var column = nextToken();
+                    if (column != Token.Kwd("COLUMN")) {
+                        throw "Expected COLUMN after DROP";
+                    }
+                    var columnName = nextToken();
+                    if (!(columnName.match(Token.Ident(_)))) {
+                        throw "Expected column name";
+                    }
+                    alters.push(AlterCommand.DropColumn(extractValue(columnName)));
+                }
+                case Token.Kwd("MODIFY"): {
+                    var column = nextToken();
+                    if (column != Token.Kwd("COLUMN")) {
+                        throw "Expected COLUMN after MODIFY";
+                    }
+                    var columnName = nextToken();
+                    if (!(columnName.match(Token.Ident(_)))) {
+                        throw "Expected column name";
+                    }
+                    var columnType = nextToken();
+                    if (!(columnType.match(Token.Ident(_)))) {
+                        throw "Expected column type";
+                    }
+                    alters.push(AlterCommand.ModifyColumn(extractValue(columnName), parseSqlType(extractValue(columnType))));
+                }
+                /*case Token.Kwd("RENAME"): {
+                    var column = nextToken();
+                    if (column != Token.Kwd("COLUMN")) {
+                        throw "Expected COLUMN after RENAME";
+                    }
+                    var oldName = nextToken();
+                    if (!(oldName is Token.Ident)) {
+                        throw "Expected old column name";
+                    }
+                    var to = nextToken();
+                    if (to != Token.Kwd("TO")) {
+                        throw "Expected TO after old column name";
+                    }
+                    var newName = nextToken();
+                    if (!(newName is Token.Ident)) {
+                        throw "Expected new column name";
+                    }
+                    alters.push(AlterCommand.RenameColumn((oldName: Token.Ident).s, (newName: Token.Ident).s));
+                }*/
+                default: {
+                    throw "Unexpected token in ALTER TABLE command: " + Std.string(token);
+                }
+            }
+
+            // Check for end of commands
+            token = peekToken();
+            if (token == Token.Eof || !(token.match(Token.Kwd(_)))) {
+                break;
+            }
+        }
+
+        return SqlCommand.AlterTable(extractValue(table), alters);
+    }
+
+    private function parseDrop(): SqlCommand {
+        // Parse TABLE keyword
+        var token = nextToken();
+        if (token != Token.Kwd("TABLE")) {
+            throw "Expected TABLE, found: " + Std.string(token);
+        }
+
+        // Parse table name
+        var table = nextToken();
+        if (!(table.match(Token.Ident(_)))) {
+            throw "Expected table name";
+        }
+
+        return SqlCommand.DropTable(extractValue(table));
+    }
+
+    private function parseFromClause(): FromClause {
+        var next = nextToken();
+        if (!(next.match(Token.Ident(_)))) {
+            throw "Expected table name in FROM clause";
+        }
+        return FromClause.Table(extractValue(next));
+    }
+
+    private function parseWhereClause(): Array<Condition> {
+        // Assuming "WHERE" keyword is already consumed
+        var conditions = new Array<Condition>();
+        while (true) {
+            var field = nextToken();
+            if (!(field.match(Token.Ident(_)))) {
+                throw "Expected field name in WHERE clause";
+            }
+            var binop = nextToken();
+            if (!(binop.match(Token.Op(_)))) {
+                throw "Expected binary operator in WHERE clause";
+            }
+            var value = nextToken();
+            if (!(value.match(Token.Ident(_))) && !(value.match(Token.CInt(_))) && !(value.match(Token.CFloat(_)))) {
+                throw "Expected value in WHERE clause";
+            }
+            conditions.push(Condition.Relational(extractValue(field), Std.string(binop), SqlValue.Value(SqlType.STRING, Std.string(value))));
+            if (peekToken() != Token.Kwd("AND")) {
+                break;
+            }
+            nextToken(); // consume the AND
+        }
+        return conditions;
+    }
+
+    private function parseInsertValue(): InsertValue {
+        if (nextToken() != Token.POpen) {
+            throw "Expected ( to start INSERT values";
+        }
+        var fields = new Array<FieldAssignment>();
+        while (true) {
+            var field = nextToken();
+            if (!(field.match(Token.Ident(_)))) {
+                throw "Expected field name";
+            }
+            if (nextToken() != Token.Op(Eq)) {
+                throw "Expected = after field name";
+            }
+            var value = nextToken();
+            fields.push({field: {table: "", field: extractValue(field), all: false}, value: SqlValue.Value(SqlType.STRING, Std.string(value))});
+            if (peekToken() == Token.PClose) {
+                nextToken(); // consume the )
+                break;
+            }
+        }
+        return InsertValue.Row(fields);
+    }
+
+    private function extractValue(t: Token): Dynamic {
+        switch t {
+            case CInt(v): {
+                return v;
+            }
+            case CFloat(v): {
+                return v;
+            }
+            case Kwd(s): {
+                return s;
+            }
+            case Ident(s): {
+                return s;
+            }
+            case Op(op): {
+                return op;
+            }
+            default: return t;
+        }
+    }
+
+    private function peekToken(): Token {
+        return tokens[pos];
+    }
+
+    private function nextToken(): Token {
+        return tokens[pos++];
+    }
+
+    private function parseSqlType(type: String): SqlType<Dynamic> {
+        switch(type) {
+            case "INT": return SqlType.INT;
+            case "STRING": return SqlType.STRING;
+            case "DATE": return SqlType.DATE;
+            case "BOOLEAN": return SqlType.BOOLEAN;
+            case "FLOAT": return SqlType.FLOAT;
+            default: return SqlType.OTHER(type);
+        }
+    }
 
 }

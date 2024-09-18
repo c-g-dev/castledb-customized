@@ -14,6 +14,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+import system.plugins.kinds.TopBarPlugin;
 import system.plugins.Plugin.Plugins;
 import js.Browser;
 import system.System;
@@ -90,6 +91,7 @@ class Main extends Model {
 		window = js.node.webkit.Window.get();
 		window.on("resize", onResize);
 		window.on("focus", function(_) js.node.webkit.App.clearCache());
+		Plugins.loadAll(this);
 		initMenu();
 		levels = [];
 		mousePos = { x : 0, y : 0 };
@@ -126,7 +128,7 @@ class Main extends Model {
 		J(Browser.document).on("contextmenu", function (e) {
 			e.preventDefault();
 		});
-		Plugins.loadAll(this);
+		
 	}
 
 	function searchFilter( filter : String ) {
@@ -2698,6 +2700,8 @@ class Main extends Model {
 			refresh();
 	}
 
+	var menuMap: Map<String, MenuItem> = [];
+
 	function initMenu() {
 		var modifier = "ctrl";
 		var menu = Menu.createWindowMenu();
@@ -2817,10 +2821,12 @@ class Main extends Model {
 
 		for(m in [mnewsheet, mnewcolumn, mnewline, medittypes])
 			medits.append(m);
+
 		medit.submenu = medits;
 
-		Autosave.init(this);
+		var mSystem = System.createMenuItem();
 
+		
 		if(Sys.systemName().indexOf("Mac") != -1) {
 			menu.createMacBuiltin("CastleDB", {hideEdit: false, hideWindow: true}); // needed so copy&paste inside INPUTs work
 			menu.removeAt(0); // remove default menu
@@ -2833,9 +2839,31 @@ class Main extends Model {
 		else {
 			menu.append(mfile);
 			menu.append(medit);
-			menu.append(System.createMenuItem());
+			menu.append(mSystem);
 			menu.append(mdebug);
 		}
+
+		Autosave.init(this);
+
+		menuMap["File"] = mfile;
+		menuMap["Database"] = medit;
+		menuMap["System"] = mSystem;
+		menuMap["Dev"] = mdebug;
+
+		for(plugin in TopBarPlugin.getAllPlugins()){
+			var m = plugin.getMenu();
+			switch (m) {
+				case NewMenu(newMenu): {
+					@:privateAccess menuMap[newMenu.label] = newMenu; 
+					menu.append(newMenu);
+				}
+				case AddToMenu(tag, newMenu): {
+					menuMap[tag].submenu.append(newMenu);
+				}
+			}
+		}
+		
+
 
 		window.menu = menu;
 		if( prefs.windowPos.x > 0 && prefs.windowPos.y > 0 ) window.moveTo(prefs.windowPos.x, prefs.windowPos.y);
