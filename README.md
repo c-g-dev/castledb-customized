@@ -15,6 +15,7 @@ hscript plugins can be placed in a ./plugins folder to extend the functionality.
 Database plugins:
 
   1) Add custom scripts to context menu based on database sheet
+  2) Edit the window menus via plugins
 
 Tilemap mode plugins:
 
@@ -39,32 +40,12 @@ Backups saved automatically
 
 ### Query system
 
-CastleDB DOES have an unfinished SQL implementation in the source code but it is completely nonfunctional. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript.
+~~CastleDB DOES have an unfinished SQL implementation in the source code but it is completely nonfunctional. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript.~~
 
-```haxe
-Insert("my_table",
-  Select("*", "my_table", (row) -> row.id == 1)
-);
+Nevermind, I did in fact implement a SQL Parser (haxelib install hx-sql-parser) and incorporate it.
 
-Update("my_table", {
-  field1: "hello",
-  field2: "world"
-},  (row) -> row.id == 1);
-
-Update("my_table",
-  Select(["field1", "field2"], "my_table", (row) -> row.id == 1)
-,  (row) -> row.id == 1);
-
-//DML operations
-
-CreateTable("new_table",
-{
-  id: TId,
-  data: TString
-});
-
-DropTable("new_table");
-```
+![alt text](image-5.png)
+![alt text](image-4.png)
 
 # dazKind's documentation:
 
