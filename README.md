@@ -47,6 +47,10 @@ Nevermind, I did in fact implement a SQL Parser (haxelib install hx-sql-parser) 
 ![alt text](image-5.png)
 ![alt text](image-4.png)
 
+### Fixed the Palette View
+
+The normal pallete component just literally renders the image of the tileset, which causes issues if the tileset is too big for the screen. Now it has a static size and scrolls, also you can zoom in/out to make extremely large palette selections if necessary. Additionally, the palette bar can be dragged around the screen.
+
 # dazKind's documentation:
 
 
