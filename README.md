@@ -53,6 +53,8 @@ The normal pallete component just literally renders the image of the tileset, wh
 
 ![image](https://github.com/user-attachments/assets/d800cf79-1dff-41ce-8b46-80aaff81b367)
 
+Also, you can now right-click eyedrop entire selections.
+
 
 # dazKind's documentation:
 
