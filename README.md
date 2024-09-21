@@ -15,7 +15,6 @@ hscript plugins can be placed in a ./plugins folder to extend the functionality.
 Database plugins:
 
   1) Add custom scripts to context menu based on database sheet
-  2) Edit the window menus via plugins
 
 Tilemap mode plugins:
 
@@ -40,21 +39,32 @@ Backups saved automatically
 
 ### Query system
 
-~~CastleDB DOES have an unfinished SQL implementation in the source code but it is completely nonfunctional. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript.~~
+CastleDB DOES have an unfinished SQL implementation in the source code but it is completely nonfunctional. I'm not interested in building out an entire SQL Parser AND implementing the logic. Instead, I've implemented common SQL commands by a normal API and then exposed them to a specific hscript context. So you can run these functions in a SQL-ish way, either programmatically or through plaintext via hscript.
 
-Nevermind, I did in fact implement a SQL Parser (haxelib install hx-sql-parser) and incorporated it.
+```haxe
+Insert("my_table",
+  Select("*", "my_table", (row) -> row.id == 1)
+);
 
-![alt text](image-5.png)
-![alt text](image-4.png)
+Update("my_table", {
+  field1: "hello",
+  field2: "world"
+},  (row) -> row.id == 1);
 
-### Fixed the Palette View
+Update("my_table",
+  Select(["field1", "field2"], "my_table", (row) -> row.id == 1)
+,  (row) -> row.id == 1);
 
-The normal pallete component just literally renders the image of the tileset, which causes issues if the tileset is too big for the screen. Now it has a static size and scrolls, also you can zoom in/out to make extremely large palette selections if necessary. Additionally, the palette bar can be dragged around the screen.
+//DML operations
 
-![image](https://github.com/user-attachments/assets/d800cf79-1dff-41ce-8b46-80aaff81b367)
+CreateTable("new_table",
+{
+  id: TId,
+  data: TString
+});
 
-Also, you can now right-click eyedrop entire selections.
-
+DropTable("new_table");
+```
 
 # dazKind's documentation:
 

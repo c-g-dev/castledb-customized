@@ -14,6 +14,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 package lvl;
+import haxe.Timer;
 import cdb.Data;
 import js.jquery.Helper.*;
 import js.jquery.JQuery;
@@ -32,7 +33,7 @@ class Palette {
 	var perTileProps : Array<Column>;
 	var perTileGfx : Map<String, lvl.LayerGfx>;
 	var currentLayer : LayerData;
-	public var zoom : Float;
+	public var scale : Float;
 	public var select : lvl.Image;
 	public var small : Bool = false;
 	public var paintMode : Bool = false;
@@ -143,33 +144,141 @@ class Palette {
 		}
 	}
 
-	public function layerChanged( l : LayerData ) {
-		currentLayer = l;
-		p = J(J("#paletteContent").html()).appendTo(@:privateAccess level.content);
-		p.toggleClass("small", small);
-		var i = lvl.Image.fromCanvas(cast p.find("canvas.view")[0]);
-		zoom = 1;
+	public function ensureBarIsOnScreen() {
+		Timer.delay(() -> {
+			var paletteJ = J(".level .palette");
+			var bar = paletteJ.find(".bar");
+			var ww = js.node.webkit.Window.get().width;
+			var wh = js.node.webkit.Window.get().height;
+			var bOff = bar.offset();
+			if( bOff.left < 0 ) {
+				paletteJ.css("left", 0);
+			}
+			if( bOff.top < 0 ) {
+				paletteJ.css("top", 0);
+			}
+			if( bOff.left > ww - bar.outerWidth() ) {
+				paletteJ.css("left", ww - (paletteJ.width() + 200));
+			}
+			if( bOff.top > wh - bar.outerHeight() ) {
+				paletteJ.css("top", wh - (paletteJ.height() + 200));
+			}
+		}, 0);
+	}
 
-		//while( zoom < 4 && l.stride * zoom * level.tileSize < 256 && l.height * zoom * level.tileSize < 256 )
-			//zoom++;
+	public function realignPaletteObject() {
 
-		var maxWidth =  js.node.webkit.Window.get().width;
-		var palWidth =  l.stride * level.tileSize * (zoom);
-		while(palWidth > maxWidth){
-			zoom = zoom / 2;
-			palWidth =  l.stride * level.tileSize * (zoom);
+	}
+
+	public function layerChanged( l : LayerData, ?resetScale: Bool = true ) {
+
+		trace("layerChanged");
+		// Assign the current layer
+
+		if(resetScale){
+			scale = 1;
 		}
 
-		var tsize = Std.int(level.tileSize * zoom);
+		currentLayer = l;
+	
+		// Find and append the palette content to the level content
+		p = J(J("#paletteContent").html()).appendTo(@:privateAccess level.content);
+
+	
+		
+		
+		// Toggle the 'small' class based on the 'small' variable
+		p.toggleClass("small", small);
+	
+		// Create an image from the canvas element
+		var i = lvl.Image.fromCanvas(cast p.find("canvas.view")[0]);
+		
+		// Determine max width and calculate palette width
+		var maxWidth = js.node.webkit.Window.get().width / 2;
+
+
+		var paletteJ = J(".level .palette");
+		var bar = p.find(".bar");
+
+		//paletteJ.offset({left: 300, top: 300});
+
+		// Make bar draggable
+		var dragging = false;
+		var startDragX = 0;
+		var startDragY = 0;
+		var lastDragX = 0;
+		var lastDragY = 0;
+
+		var drag = (e: Dynamic) -> {
+			if(dragging){
+				var pOff = paletteJ.offset();
+				var deltaX = e.pageX - lastDragX;
+				var deltaY = e.pageY - lastDragY;
+				//trace("e.pageX" + e.pageX + "e.pageY: " + e.pageY + " bOff.top: " + bOff.top + " pOff.top: " + pOff.top, "bOff.left: " + bOff.left + " pOff.left: " + pOff.left);
+				paletteJ.offset({top: pOff.top + deltaY, left: pOff.left + deltaX});
+				lastDragX = e.pageX;
+				lastDragY = e.pageY;
+			}
+		};
+
+		bar.mousedown((e: Dynamic) -> {
+			trace("bar.mousedown");
+			dragging = true;
+			startDragX = e.pageX;
+			startDragY = e.pageY;
+			lastDragX = e.pageX;
+			lastDragY = e.pageY;
+
+			J(".level").on("mousemove.palette", drag);
+		});
+
+		bar.mouseup(function(e) {
+			dragging = false;
+			J(".level").off("mousemove.palette");
+			ensureBarIsOnScreen();
+		});
+
+		var palWidth = l.stride * level.tileSize * scale;
+	
+		// Adjust zoom until the palette width fits within the max width
+	//	while(palWidth > maxWidth){
+			//scale = scale - 0.1;
+	//		palWidth = l.stride * level.tileSize * scale;
+		//}
+
+		var smallFactor = small ? 0 : 1;
+		paletteJ.css({
+			//"width": "300px",
+			//"height": bar.height() + (smallFactor * l.height * level.tileSize * scale) + "px"
+		});
+
+		ensureBarIsOnScreen();
+		
+		if(small){
+			J(".level .palette").offset(J(".level .bar").offset());
+			J(".level .palette").css({
+				"height": J(".level .bar").height() + "px"
+			});
+		}
+	
+		// Calculate the tile size based on the zoom level
+		var tsize = Std.int(level.tileSize * scale);
 		var scaleUp = 0, scaleDown = 0;
+	
+		// Set the size of the image canvas based on stride and height
 		i.setSize(l.stride * (tsize + 1), l.height * (tsize + 1));
+	
+		// Loop through each tile image in the layer
 		for( n in 0...l.images.length ) {
 			var x = (n % l.stride) * (tsize + 1);
 			var y = Std.int(n / l.stride) * (tsize + 1);
 			var li = l.images[n];
-			if( li.width == tsize && li.height == tsize )
+	
+			// Draw the image directly if it matches the tile size
+			if( li.width == tsize && li.height == tsize ) {
 				i.draw(li, x, y);
-			else {
+			} else {
+				// Calculate scale width and height
 				var sw = tsize / li.width;
 				var sh = tsize / li.height;
 				if( sw > 1 ) scaleUp++ else if( sw < 1 ) scaleDown++;
@@ -177,41 +286,59 @@ class Palette {
 				i.drawScaled(li, x, y, tsize, tsize);
 			}
 		}
-
-		if( scaleUp > scaleDown && scaleUp != 0 )
+	
+		// Adjust image rendering mode if required
+		if( scaleUp > scaleDown && scaleUp != 0 ) {
 			J(i.getCanvas()).css("image-rendering", "pixelated");
-
-		var jsel = p.find("canvas.select");
+		}
+	
+		// Select elements for interaction
+		var jsel = J(".level .palette .content .select");
 		var jpreview = p.find(".preview").hide();
 		var ipreview = lvl.Image.fromCanvas(cast jpreview.find("canvas")[0]);
 		select = lvl.Image.fromCanvas(cast jsel[0]);
 		select.setSize(i.width, i.height);
-
-		p.find(".icon.random").toggleClass("active",randomMode);
+	
+		// Toggle active states of different icons
+		p.find(".icon.random").toggleClass("active", randomMode);
 		p.find(".icon.paint").toggleClass("active", paintMode);
 		p.find(".icon.small").toggleClass("active", small);
+		p.find(".icon.gridFill").toggleClass("active", gridFill);
+	
+		// Prevent event propagation for mouse down and up on the palette
 		p.mousedown(function(e) e.stopPropagation());
 		p.mouseup(function(e) e.stopPropagation());
-
+	
 		var curPreview = -1;
-		var start = { x : l.current % l.stride, y : Std.int(l.current / l.stride), down : false };
+		var start = { x : l.currentSelection % l.stride, y : Std.int(l.currentSelection / l.stride), down : false };
+	
+		// Event handler for mouse down on the selection canvas
 		jsel.mousedown(function(e) {
-
+			trace("jsel.mousedown");
 			p.find("input[type=text]:focus").blur();
-
+			
+			@:privateAccess var scrollX = level.content.find(".content").scrollLeft();
+			@:privateAccess var scrollY = level.content.find(".content").scrollTop();
 			var o = jsel.offset();
-			var x = Std.int((e.pageX - o.left) / (level.tileSize*zoom + 1));
-			var y = Std.int((e.pageY - o.top) / (level.tileSize*zoom + 1));
-			if( x + y * l.stride >= l.images.length ) return;
+		//	o.left -= scrollX;
+		//	o.top -= scrollY;
 
+			var x = Std.int((e.pageX - o.left) / (level.tileSize * scale + 1));
+			var y = Std.int((e.pageY - o.top) / (level.tileSize * scale + 1));
+			//var xScollDisplaced = Std.int((e.pageX - (o.left - scrollX)) / (level.tileSize * scale + 1));
+			//var yScrollDisplaced = Std.int((e.pageY - (o.top - scrollY)) / (level.tileSize * scale + 1));
+
+			trace("scrollX: " + scrollX + " scrollY: " + scrollY + " o.left: " + o.left + " o.top: " + o.top + " x: " + x + " y: " + y);
+			if( x + y * l.stride >= l.images.length ) return;
+	
 			if( e.shiftKey ) {
 				var x0 = x < start.x ? x : start.x;
 				var y0 = y < start.y ? y : start.y;
 				var x1 = x < start.x ? start.x : x;
 				var y1 = y < start.y ? start.y : y;
-				l.current = x0 + y0 * l.stride;
-				l.currentWidth = x1 - x0 + 1;
-				l.currentHeight = y1 - y0 + 1;
+				l.currentSelection = x0 + y0 * l.stride;
+				l.currentSelectionWidth = x1 - x0 + 1;
+				l.currentSelectionHeight = y1 - y0 + 1;
 				l.saveState();
 				level.setCursor();
 			} else {
@@ -220,83 +347,88 @@ class Palette {
 				if( l.tileProps != null && (mode == null || mode == "t_objects") )
 					for( p in l.tileProps.sets )
 						if( x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h && p.t == Object ) {
-							l.current = p.x + p.y * l.stride;
-							l.currentWidth = p.w;
-							l.currentHeight = p.h;
+							l.currentSelection = p.x + p.y * l.stride;
+							l.currentSelectionWidth = p.w;
+							l.currentSelectionHeight = p.h;
 							l.saveState();
 							level.setCursor();
 							return;
 						}
 				start.down = true;
 				@:privateAccess level.mouseCapture = jsel;
-				l.current = x + y * l.stride;
+				l.currentSelection = x + y * l.stride;
 				level.setCursor();
 			}
-
+	
 			var prop = getProp();
 			if( prop != null ) {
-
-
+	
 				var pick = e.which == 3;
-
+	
 				switch( prop.type ) {
-				case TBool:
-					if( !pick ) {
-						var v = getTileProp(x, y);
-						Reflect.setField(v, prop.name, !Reflect.field(v, prop.name));
+					case TBool: {
+						if( !pick ) {
+							var v = getTileProp(x, y);
+							Reflect.setField(v, prop.name, !Reflect.field(v, prop.name));
+							saveTileProps();
+						}
+					}
+					case TRef(_): {
+						var c = perTileGfx.get(prop.name);
+						if( pick ) {
+							var idx = c.idToIndex.get(Reflect.field(getTileProp(x, y), prop.name));
+							modeCursor = idx == null ? -1 : idx;
+							level.setCursor();
+							return;
+						}
+						var v;
+						if( modeCursor < 0 )
+							v = getDefault(prop);
+						else
+							v = c.indexToId[modeCursor];
+						if( v == null )
+							Reflect.deleteField(getTileProp(x, y), prop.name);
+						else
+							Reflect.setField(getTileProp(x, y), prop.name, v);
 						saveTileProps();
 					}
-				case TRef(_):
-					var c = perTileGfx.get(prop.name);
-
-					if( pick ) {
-						var idx = c.idToIndex.get(Reflect.field(getTileProp(x, y), prop.name));
-						modeCursor = idx == null ? -1 : idx;
-						level.setCursor();
-						return;
+					case TEnum(_): {
+						if( pick ) {
+							var idx : Null<Int> = Reflect.field(getTileProp(x, y), prop.name);
+							modeCursor = idx == null ? -1 : idx;
+							level.setCursor();
+							return;
+						}
+						var v;
+						if( modeCursor < 0 )
+							v = getDefault(prop);
+						else
+							v = modeCursor;
+						if( v == null )
+							Reflect.deleteField(getTileProp(x, y), prop.name);
+						else
+							Reflect.setField(getTileProp(x, y), prop.name, v);
+						saveTileProps();
 					}
-
-					var v;
-					if( modeCursor < 0 )
-						v = getDefault(prop);
-					else
-						v = c.indexToId[modeCursor];
-					if( v == null )
-						Reflect.deleteField(getTileProp(x, y), prop.name);
-					else
-						Reflect.setField(getTileProp(x, y), prop.name, v);
-					saveTileProps();
-				case TEnum(_):
-
-					if( pick ) {
-						var idx : Null<Int> = Reflect.field(getTileProp(x, y), prop.name);
-						modeCursor = idx == null ? -1 : idx;
-						level.setCursor();
-						return;
-					}
-
-					var v;
-					if( modeCursor < 0 )
-						v = getDefault(prop);
-					else
-						v = modeCursor;
-					if( v == null )
-						Reflect.deleteField(getTileProp(x, y), prop.name);
-					else
-						Reflect.setField(getTileProp(x, y), prop.name, v);
-					saveTileProps();
-				default:
+					default: {}
 				}
 			}
 		});
-
+	
+		// Event handler for mouse movement on the selection canvas
 		jsel.mousemove(function(e) {
-
+	
+			@:privateAccess var scrollX = level.content.find(".content").scrollLeft();
+			@:privateAccess var scrollY = level.content.find(".content").scrollTop();
 			var o = jsel.offset();
-			var x = Std.int((e.pageX - o.left) / (level.tileSize * zoom + 1));
-			var y = Std.int((e.pageY - o.top) / (level.tileSize * zoom + 1));
+			//o.left -= scrollX;
+			//o.top -= scrollY;
+			
+			var x = Std.int((e.pageX - o.left) / (level.tileSize * scale + 1));
+			var y = Std.int((e.pageY - o.top) / (level.tileSize * scale + 1));
 			var infos = x + "," + y;
 
+	
 			var id = x + y * l.stride;
 			if( id >= l.images.length || l.blanks[id] ) {
 				curPreview = -1;
@@ -315,19 +447,20 @@ class Palette {
 				@:privateAccess level.content.find(".cursorPosition").text(infos);
 			else
 				p.find(".infos").text(infos);
-
+	
 			if( !start.down ) return;
 			var x0 = x < start.x ? x : start.x;
 			var y0 = y < start.y ? y : start.y;
 			var x1 = x < start.x ? start.x : x;
 			var y1 = y < start.y ? start.y : y;
-			l.current = x0 + y0 * l.stride;
-			l.currentWidth = x1 - x0 + 1;
-			l.currentHeight = y1 - y0 + 1;
+			l.currentSelection = x0 + y0 * l.stride;
+			l.currentSelectionWidth = x1 - x0 + 1;
+			l.currentSelectionHeight = y1 - y0 + 1;
 			l.saveState();
 			level.setCursor();
 		});
-
+	
+		// Event handler for mouse leaving the selection canvas
 		jsel.mouseleave(function(e) {
 			if( l.tileProps != null )
 				@:privateAccess level.content.find(".cursorPosition").text("");
@@ -336,11 +469,13 @@ class Palette {
 			curPreview = -1;
 			jpreview.hide();
 		});
-
+	
+		// Event handler for mouse leaving the palette
 		p.mouseleave(function(_) {
 			start.down = false;
 		});
-
+	
+		// Event handler for mouse movement on the palette
 		p.mousemove(function(e) {
 			@:privateAccess {
 				// handle cascading
@@ -350,12 +485,12 @@ class Palette {
 				if( level.selection == null ) level.cursor.hide();
 			}
 		});
-
+	
+		// Event handler for mouse up on the palette
 		p.mouseup(function(_) {
 			start.down = false;
 			@:privateAccess level.content.mouseup();
 		});
-
 	}
 
 	public function updateSelect() {
@@ -391,7 +526,7 @@ class Palette {
 			}
 		}
 
-		var tsize = Std.int(level.tileSize * zoom);
+		var tsize = Std.int(level.tileSize * scale);
 
 		for( i in 0...l.images.length ) {
 			if( used[i] ) continue;
@@ -405,7 +540,7 @@ class Palette {
 				for( o in objs )
 					select.fillRect( o.x * (tsize + 1), o.y * (tsize + 1), (tsize + 1) * o.w - 1, (tsize + 1) * o.h - 1, 0x805BA1FB);
 			else
-				select.fillRect( (l.current % l.stride) * (tsize + 1), Std.int(l.current / l.stride) * (tsize + 1), (tsize + 1) * l.currentWidth - 1, (tsize + 1) * l.currentHeight - 1, 0x805BA1FB);
+				select.fillRect( (l.currentSelection % l.stride) * (tsize + 1), Std.int(l.currentSelection / l.stride) * (tsize + 1), (tsize + 1) * l.currentSelectionWidth - 1, (tsize + 1) * l.currentSelectionHeight - 1, 0x805BA1FB);
 		}
 		if( prop != null ) {
 			var def : Dynamic = getDefault(prop);
@@ -495,7 +630,7 @@ class Palette {
 					color = 0xFFFFFF;
 				}
 				color |= 0xFF000000;
-				var tsize = Std.int(level.tileSize * zoom);
+				var tsize = Std.int(level.tileSize * scale);
 				var px = s.x * (tsize + 1);
 				var py = s.y * (tsize + 1);
 				var w = s.w * (tsize + 1) - 1;
@@ -557,7 +692,7 @@ class Palette {
 					}
 				case TInt, TFloat, TString, TDynamic:
 					m.addClass("m_value");
-					var p = getTileProp(l.current % l.stride, Std.int(l.current / l.stride),false);
+					var p = getTileProp(l.currentSelection % l.stride, Std.int(l.currentSelection / l.stride),false);
 					var v = p == null ? null : Reflect.field(p, prop.name);
 					m.find("[name=value]").val(prop.type == TDynamic ? haxe.Json.stringify(v) : v == null ? "" : "" + v);
 				default:
@@ -594,6 +729,7 @@ class Palette {
 		return null;
 	}
 
+	var lastHeight: Float = 0;
 	
 	public function option( name : String, ?val : String ) {
 		if( p == null )
@@ -620,6 +756,20 @@ class Palette {
 			level.savePrefs();
 			p.find(".icon.gridFill").toggleClass("active", gridFill);
 			return false;
+		case "zoomIn":
+			scale = scale * 2;
+			reset();
+			trace("scale: " + scale);
+			layerChanged(currentLayer, false);
+			updateSelect();
+			return false;
+		case "zoomOut":
+			scale = scale / 2;
+			reset();
+			trace("scale: " + scale);
+			layerChanged(currentLayer, false);
+			updateSelect();
+			return false;
 		case "mode":
 			mode = val == "t_tile" ? null : val;
 			modeCursor = 0;
@@ -628,7 +778,7 @@ class Palette {
 		case "toggleMode":
 			var s = l.getTileProp(m);
 			if( s == null ) {
-				s = { x : l.current % l.stride, y : Std.int(l.current / l.stride), w : l.currentWidth, h : l.currentHeight, t : m, opts : {} };
+				s = { x : l.currentSelection % l.stride, y : Std.int(l.currentSelection / l.stride), w : l.currentSelectionWidth, h : l.currentSelectionHeight, t : m, opts : {} };
 				l.tileProps.sets.push(s);
 			} else
 				l.tileProps.sets.remove(s);
@@ -640,7 +790,7 @@ class Palette {
 		case "value":
 			var p = getProp();
 			if( p != null ) {
-				var t = getTileProp(l.current % l.stride, Std.int(l.current / l.stride));
+				var t = getTileProp(l.currentSelection % l.stride, Std.int(l.currentSelection / l.stride));
 				var v : Dynamic = switch( p.type ) {
 				case TInt: Std.parseInt(val);
 				case TFloat: Std.parseFloat(val);
@@ -693,13 +843,32 @@ class Palette {
 					s.opts.borderMode = val;
 			}
 		case "small":
+			trace("small: " + !small);
 			small = !small;
+			
+			if(small){
+				lastHeight = J(".level .palette").height();
+				J(".level .palette").offset(J(".level .bar").offset());
+				J(".level .palette").css({
+					"height": J(".level .bar").height() + "px"
+				});
+			}
+			else {
+				J(".level .palette").offset({left: J(".level .palette").offset().left, top: J(".level .palette").offset().top - (lastHeight /*+ J(".level .bar").outerHeight()*/)});
+				J(".level .palette").css({
+					"height": lastHeight + "px"
+				});
+			}
+
 			level.savePrefs();
 			p.toggleClass("small", small);
 			p.find(".icon.small").toggleClass("active", small);
+			ensureBarIsOnScreen();
 			return false;
 		}
 		return true;
 	}
+
+	
 
 }

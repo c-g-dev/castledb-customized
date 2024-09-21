@@ -396,19 +396,22 @@ class Level {
 		return true;
 	}
 
-	function pick( ?filter ) {
-		if( curPos == null ) return null;
+	function pick( ?filter, ?pickPos: {x: Int, y: Int, xf: Float, yf: Float} ): { k : Int, layer : LayerData, index : Int } {
+		if(pickPos == null){
+			pickPos = curPos;
+		}
+		if( pickPos == null ) return null;
 		var i = layers.length - 1;
 		while( i >= 0 ) {
 			var l = layers[i--];
 			if( !l.enabled() || (filter != null && !filter(l)) ) continue;
-			var x = curPos.xf;
-			var y = curPos.yf;
-			var ix = Std.int((x - curPos.x) * tileSize);
-			var iy = Std.int((y - curPos.y) * tileSize);
+			var x = pickPos.xf;
+			var y = pickPos.yf;
+			var ix = Std.int((x - pickPos.x) * tileSize);
+			var iy = Std.int((y - pickPos.y) * tileSize);
 			switch( l.data ) {
 			case Layer(data):
-				var idx = curPos.x + curPos.y * width;
+				var idx = pickPos.x + pickPos.y * width;
 				var k = data[idx];
 				if( k == 0 && i >= 0 ) continue;
 				if( l.images != null ) {
@@ -455,7 +458,7 @@ class Level {
 					}
 				}
 			case Tiles(_,data):
-				var idx = curPos.x + curPos.y * width;
+				var idx = pickPos.x + pickPos.y * width;
 				var k = data[idx] - 1;
 				if( k < 0 ) continue;
 				var i = l.images[k];
@@ -770,7 +773,7 @@ class Level {
 			var id = UID++;
 			var t = J('<input type="text" id="_${UID++}">').appendTo(td);
 			spectrum(t,{
-				color : toColor(l.colors[l.current]),
+				color : toColor(l.colors[l.currentSelection]),
 				clickoutFiresChange : true,
 				showButtons : false,
 				showPaletteOnly : true,
@@ -779,7 +782,7 @@ class Level {
 			},allocRef(function(color:Int) {
 				for( i in 0...l.colors.length )
 					if( l.colors[i] == color ) {
-						l.current = i;
+						l.currentSelection = i;
 						setLayer(l);
 						return;
 					}
@@ -881,8 +884,8 @@ class Level {
 				if( l == null )
 					return;
 				var o = l.getSelObjects()[0];
-				var w = o == null ? currentLayer.currentWidth : o.w;
-				var h = o == null ? currentLayer.currentHeight : o.h;
+				var w = o == null ? currentLayer.currentSelectionWidth : o.w;
+				var h = o == null ? currentLayer.currentSelectionHeight : o.h;
 				if( o == null && palette.randomMode )
 					w = h = 1;
 				mouseDown = { rx : curPos == null ? 0 : (curPos.x % w), ry : curPos == null ? 0 : (curPos.y % h), w : w, h : h };
@@ -894,21 +897,37 @@ class Level {
 			case 3:
 
 				if( selection != null ) {
-					clearSelection();
-					draw();
-					return;
+
+					//if curPos is in selection
+					if( e.ctrlKey ) {
+						/*var p = pick(null, {x: Std.int(selection.x), y: Std.int(selection.y), xf: selection.x, yf: selection.y});
+						if( p != null ) {
+							p.layer.currentSelection = p.k;
+							p.layer.currentSelectionWidth = Std.int(selection.w);
+							p.layer.currentSelectionHeight = Std.int(selection.h);
+							setLayer(p.layer);
+							return;
+						}*/
+						set(curPos.x, curPos.y, false, true);
+	
+					}
+					else{
+						clearSelection();
+						draw();
+						return;
+					}
 				}
 
 				var p = pick();
 				if( p != null ) {
-					p.layer.current = p.k;
+					p.layer.currentSelection = p.k;
 					switch( p.layer.data ) {
 					case TileInstances(_, insts):
 						var i = insts[p.index];
 						var obj = p.layer.getTileObjects().get(i.o);
 						if( obj != null ) {
-							p.layer.currentWidth = obj.w;
-							p.layer.currentHeight = obj.h;
+							p.layer.currentSelectionWidth = obj.w;
+							p.layer.currentSelectionHeight = obj.h;
 							p.layer.saveState();
 						}
 						flipMode = i.flip;
@@ -984,7 +1003,7 @@ class Level {
 			var o : { x : Float, y : Float, ?width : Float, ?height : Float } = { x : px, y : py };
 			objs.push(o);
 			if( idCol != null )
-				Reflect.setField(o, idCol, l.indexToId[currentLayer.current]);
+				Reflect.setField(o, idCol, l.indexToId[currentLayer.currentSelection]);
 			for( c in l.baseSheet.columns ) {
 				if( c.opt || c.name == "x" || c.name == "y" || c.name == idCol ) continue;
 				var v = model.base.getDefault(c);
@@ -1340,13 +1359,13 @@ class Level {
 		switch( l.data ) {
 		case Layer(data):
 			var k = data[x + y * width];
-			if( k == l.current || l.blanks[l.current] ) return;
+			if( k == l.currentSelection || l.blanks[l.currentSelection] ) return;
 			var todo = [x, y];
 			while( todo.length > 0 ) {
 				var y = todo.pop();
 				var x = todo.pop();
 				if( data[x + y * width] != k ) continue;
-				data[x + y * width] = l.current;
+				data[x + y * width] = l.currentSelection;
 				l.dirty = true;
 				if( x > 0 ) {
 					todo.push(x - 1);
@@ -1369,15 +1388,15 @@ class Level {
 			draw();
 		case Tiles(_, data):
 			var k = data[x + y * width];
-			if( k == l.current + 1 || l.blanks[l.current] ) return;
+			if( k == l.currentSelection + 1 || l.blanks[l.currentSelection] ) return;
 			var px = x, py = y, zero = [], todo = [x, y];
 			while( todo.length > 0 ) {
 				var y = todo.pop();
 				var x = todo.pop();
 				if( data[x + y * width] != k ) continue;
-				var dx = (x - px) % l.currentWidth; if( dx < 0 ) dx += l.currentWidth;
-				var dy = (y - py) % l.currentHeight; if( dy < 0 ) dy += l.currentHeight;
-				var t = l.current + (palette.randomMode ? Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride : dx + dy * l.stride);
+				var dx = (x - px) % l.currentSelectionWidth; if( dx < 0 ) dx += l.currentSelectionWidth;
+				var dy = (y - py) % l.currentSelectionHeight; if( dy < 0 ) dy += l.currentSelectionHeight;
+				var t = l.currentSelection + (palette.randomMode ? Std.random(l.currentSelectionWidth) + Std.random(l.currentSelectionHeight) * l.stride : dx + dy * l.stride);
 				if( l.blanks[t] )
 					zero.push(x + y * width);
 				data[x + y * width] = t + 1;
@@ -1500,13 +1519,13 @@ class Level {
 				var found = false;
 
 				for( t in l.tileProps.sets )
-					if( t.x + t.y * l.stride == l.current && t.t == mode ) {
+					if( t.x + t.y * l.stride == l.currentSelection && t.t == mode ) {
 						found = true;
 						l.tileProps.sets.remove(t);
 						break;
 					}
 				if( !found ) {
-					l.tileProps.sets.push( { x : l.current % l.stride, y : Std.int(l.current / l.stride), w : l.currentWidth, h : l.currentHeight, t : mode, opts : { } } );
+					l.tileProps.sets.push( { x : l.currentSelection % l.stride, y : Std.int(l.currentSelection / l.stride), w : l.currentSelectionWidth, h : l.currentSelectionHeight, t : mode, opts : { } } );
 
 					// look for existing objects and group them
 					for( l2 in layers )
@@ -1515,17 +1534,17 @@ class Level {
 							case TileInstances(_, insts):
 								var found = [];
 								for( i in insts )
-									if( i.o == l.current )
+									if( i.o == l.currentSelection )
 										found.push({ x : i.x, y : i.y, i : [] });
 									else {
-										var d = i.o - l.current;
+										var d = i.o - l.currentSelection;
 										var dx = d % l.stride;
 										var dy = Std.int(d / l.stride);
 										for( f in found )
 											if( f.x == i.x - dx && f.y == i.y - dy )
 												f.i.push(i);
 									}
-								var count = l.currentWidth * l.currentHeight - 1;
+								var count = l.currentSelectionWidth * l.currentSelectionHeight - 1;
 								for( f in found )
 									if( f.i.length == count )
 										for( i in f.i ) {
@@ -1545,48 +1564,48 @@ class Level {
 			paletteOption("random");
 		case K.LEFT:
 			e.preventDefault();
-			var w = l.currentWidth, h = l.currentHeight;
-			if( l.current % l.stride > w-1 ) {
-				l.current -= w;
+			var w = l.currentSelectionWidth, h = l.currentSelectionHeight;
+			if( l.currentSelection % l.stride > w-1 ) {
+				l.currentSelection -= w;
 				if( w != 1 || h != 1 ) {
-					l.currentWidth = w;
-					l.currentHeight = h;
+					l.currentSelectionWidth = w;
+					l.currentSelectionHeight = h;
 					l.saveState();
 				}
 				setCursor();
 			}
 		case K.RIGHT:
 			e.preventDefault();
-			var w = l.currentWidth, h = l.currentHeight;
-			if( l.current % l.stride < l.stride - w && l.images != null && l.current + w < l.images.length ) {
-				l.current += w;
+			var w = l.currentSelectionWidth, h = l.currentSelectionHeight;
+			if( l.currentSelection % l.stride < l.stride - w && l.images != null && l.currentSelection + w < l.images.length ) {
+				l.currentSelection += w;
 				if( w != 1 || h != 1 ) {
-					l.currentWidth = w;
-					l.currentHeight = h;
+					l.currentSelectionWidth = w;
+					l.currentSelectionHeight = h;
 					l.saveState();
 				}
 				setCursor();
 			}
 		case K.DOWN:
 			e.preventDefault();
-			var w = l.currentWidth, h = l.currentHeight;
-			if( l.images != null && l.current + l.stride * h < l.images.length ) {
-				l.current += l.stride * h;
+			var w = l.currentSelectionWidth, h = l.currentSelectionHeight;
+			if( l.images != null && l.currentSelection + l.stride * h < l.images.length ) {
+				l.currentSelection += l.stride * h;
 				if( w != 1 || h != 1 ) {
-					l.currentWidth = w;
-					l.currentHeight = h;
+					l.currentSelectionWidth = w;
+					l.currentSelectionHeight = h;
 					l.saveState();
 				}
 				setCursor();
 			}
 		case K.UP:
 			e.preventDefault();
-			var w = l.currentWidth, h = l.currentHeight;
-			if( l.current >= l.stride * h ) {
-				l.current -= l.stride * h;
+			var w = l.currentSelectionWidth, h = l.currentSelectionHeight;
+			if( l.currentSelection >= l.stride * h ) {
+				l.currentSelection -= l.stride * h;
 				if( w != 1 || h != 1 ) {
-					l.currentWidth = w;
-					l.currentHeight = h;
+					l.currentSelectionWidth = w;
+					l.currentSelectionHeight = h;
 					l.saveState();
 				}
 				setCursor();
@@ -1675,7 +1694,7 @@ class Level {
 			}
 		case Tiles(_, data):
 			var changed = false;
-			var w = currentLayer.currentWidth, h = currentLayer.currentHeight;
+			var w = currentLayer.currentSelectionWidth, h = currentLayer.currentSelectionHeight;
 			if( palette.randomMode ) w = h = 1;
 			for( dy in 0...h )
 				for( dx in 0...w ) {
@@ -1722,7 +1741,7 @@ class Level {
 		}
 	}
 
-	function set( x, y, replace ) {
+	function set( x, y, replace, ?drawSelection: Bool = false ) {
 		if( selection != null )
 			return;
 		if( palette.paintMode ) {
@@ -1733,8 +1752,8 @@ class Level {
 		if( !l.enabled() ) return;
 		switch( l.data ) {
 		case Layer(data):
-			if( data[x + y * width] == l.current || l.blanks[l.current] ) return;
-			data[x + y * width] = l.current;
+			if( data[x + y * width] == l.currentSelection || l.blanks[l.currentSelection] ) return;
+			data[x + y * width] = l.currentSelection;
 			l.dirty = true;
 			save();
 			draw();
@@ -1766,12 +1785,12 @@ class Level {
 					if( replace && old > 0 ) {
 						for( i in 0...width*height )
 							if( data[i] == old ) {
-								var id = l.current + Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride + 1;
+								var id = l.currentSelection + Std.random(l.currentSelectionWidth) + Std.random(l.currentSelectionHeight) * l.stride + 1;
 								if( old == id || l.blanks[id - 1] ) continue;
 								data[i] = id;
 							}
 					} else {
-						var id = l.current + Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride + 1;
+						var id = l.currentSelection + Std.random(l.currentSelectionWidth) + Std.random(l.currentSelectionHeight) * l.stride + 1;
 						if( old == id || l.blanks[id - 1] ) return;
 						data[p] = id;
 					}
@@ -1782,18 +1801,32 @@ class Level {
 				var startX = x % 2 == 0 ? x : x - 1;
 				var startY = y % 2 == 0 ? y : y - 1;
 				var p = startX + (startY * width);
-				var id = l.current + 1;
+				var id = l.currentSelection + 1;
 				data[p] = id;
 				data[p + 1] = id;
 				data[p + width] = id;
 				data[p + width + 1] = id;
 				changed = true;
 			}	
+			else if(drawSelection){
+				//for each coordinate in selection
+				//var id =data[coord]
+				//var p = (x + coordOffsetX) + (y + coordOffsetY) * stride
+				//data[p] = id
+				for(cX in 0...Std.int(selection.w)){
+					for(cY in 0...Std.int(selection.h)){
+						var coordP = Std.int(selection.sx + cX + (selection.sy + cY) * selection.w);
+						var p = (x + cX) + (y + cY) * width;
+						var id = data[coordP];
+						data[p] = id;						
+					}
+				}
+			}
 			else {
-				for( dy in 0...l.currentHeight )
-					for( dx in 0...l.currentWidth ) {
+				for( dy in 0...l.currentSelectionHeight ) {
+					for( dx in 0...l.currentSelectionWidth ) {
 						var p = x + dx + (y + dy) * width;
-						var id = l.current + dx + dy * l.stride + 1;
+						var id = l.currentSelection + dx + dy * l.stride + 1;
 						var old = data[p];
 						if( old == id || l.blanks[id - 1] ) continue;
 						if( replace && old > 0 ) {
@@ -1804,6 +1837,7 @@ class Level {
 							data[p] = id;
 						changed = true;
 					}
+				}
 			}
 			if( !changed ) return;
 			l.dirty = true;
@@ -1827,16 +1861,16 @@ class Level {
 				var ox = i.x + (o == null ? 0.5 : o.w * 0.5);
 				var oy = i.y + (o == null ? 0.5 : o.h - 0.5);
 				if( x + dx >= ox - 0.5 && y + dy >= oy - 0.5 && x + dx < ox + 0.5 && y + dy < oy + 0.5 ) {
-					if( i.o == l.current && i.x == x && i.y == y && i.flip == flipMode && i.rot == rotation ) return;
+					if( i.o == l.currentSelection && i.x == x && i.y == y && i.flip == flipMode && i.rot == rotation ) return;
 					insts.remove(i);
 				}
 			}
 			if( putObj != null )
 				insts.push( { x : x, y : y, o : putObj.x + putObj.y * l.stride, rot : rotation, flip : flipMode } );
 			else
-				for( dy in 0...l.currentHeight )
-					for( dx in 0...l.currentWidth )
-						insts.push( { x : x+dx, y : y+dy, o : l.current + dx + dy * l.stride, rot : rotation, flip : flipMode } );
+				for( dy in 0...l.currentSelectionHeight )
+					for( dx in 0...l.currentSelectionWidth )
+						insts.push( { x : x+dx, y : y+dy, o : l.currentSelection + dx + dy * l.stride, rot : rotation, flip : flipMode } );
 			inline function getY(i:Instance) {
 				var o = objs.get(i.o);
 				return Std.int( (i.y + (o == null ? 1 : o.h)) * tileSize);
@@ -2063,9 +2097,9 @@ class Level {
 			return;
 		}
 
-		var cur = l.current;
-		var w = palette.randomMode ? 1 : l.currentWidth;
-		var h = palette.randomMode ? 1 : l.currentHeight;
+		var cur = l.currentSelection;
+		var w = palette.randomMode ? 1 : l.currentSelectionWidth;
+		var h = palette.randomMode ? 1 : l.currentSelectionHeight;
 		if( l.data.match(TileInstances(_)) ) {
 			var o = l.getSelObjects();
 			if( o.length > 0 ) {
@@ -2122,4 +2156,8 @@ class Level {
 
 	
 
+}
+
+enum EyedropSelection {
+	Single(k: Int, layer: LayerData, index: Int);
 }

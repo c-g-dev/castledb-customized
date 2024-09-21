@@ -1,5 +1,8 @@
 package util.query;
 
+import haxe.Json;
+import cdb.Parser;
+import cdb.Data.Column;
 import hxsqlparser.SqlCommandParse.SqlType;
 import cdb.Data.ColumnType;
 import hxsqlparser.SqlCommandParse.SqlValue;
@@ -48,6 +51,7 @@ class SqlEngine {
     }
 
     function evaluateQuery(command: SqlCommand): Dynamic {
+        trace("evaluateQuery: " + command);
         switch (command) {
             case Select(fields, fromClause, whereClause): {
                 var fromTable: String = extractTableName(fromClause);
@@ -63,6 +67,15 @@ class SqlEngine {
                 querier.update(table, updateFields, whereFunction);
             }
             case Insert(table, fieldNames, insertValue): {
+                if(fieldNames == null || fieldNames.length == 0) {
+                    fieldNames = [];
+                    var columns = querier.getColumns(table);
+                    for (column in columns) {
+                        fieldNames.push({
+                            field: column.name
+                        });
+                    }
+                }
                 var insertRow = mapInsertValue(fieldNames, insertValue);
                 querier.insert(table, insertRow);
             }
@@ -71,9 +84,14 @@ class SqlEngine {
                 querier.delete(table, whereFunction);
             }
             case CreateTable(table, fields): {
-                var fieldMap: Dynamic = {};
+                var fieldMap: Array<Column> = [];
                 for (field in fields) {
-                    Reflect.setField(fieldMap, field.name, field.type);
+                    var columnType = convertType(field.type);
+                    fieldMap.push({
+                        name: field.name,
+                        type: columnType,
+                        typeStr: Parser.saveType(columnType),
+                    });
                 }
                 querier.createTable(table, fieldMap);
             }
@@ -169,9 +187,18 @@ class SqlEngine {
             case Multiple(rows):
                 return rows.map(row -> mapInsertValue(fieldNames, row));
             case Query(command): {
-                var result = evaluateQuery(command);
+                var result: Array<Dynamic> = cast evaluateQuery(command);
                 if (result != null) {
-                    return mapInsertValue(fieldNames, Multiple(result));
+                    trace("internal query result: " + Json.stringify(result));
+                    var arrayedResults: Array<InsertValue> = [];
+                    for (eachEntry in result) {
+                        var fields: Array<SqlValue> = [];
+                        for (eachField in Reflect.fields(eachEntry)) {
+                            fields.push(Value(UNKNOWN, Reflect.field(eachEntry, eachField)));
+                        }
+                        arrayedResults.push(Row(fields));
+                    }
+                    return mapInsertValue(fieldNames, Multiple(arrayedResults));
                 }
             }
         }

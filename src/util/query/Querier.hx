@@ -1,5 +1,7 @@
 package util.query;
 
+import hxsqlparser.SqlCommandParse;
+import haxe.Json;
 import cdb.Database;
 import cdb.Parser;
 import cdb.Data;
@@ -16,17 +18,34 @@ class Querier {
         @:privateAccess this.data = database.data;
     }
 
-    public function select(fields: Dynamic, fromTable: String, whereClause: Dynamic -> Bool):Dynamic {
-        return data.sheets
+    public function select(fields: Array<Field>, fromTable: String, whereClause: Dynamic -> Bool):Dynamic {
+        var s = data.sheets
             .filter(sheet -> sheet.name == fromTable)
             .map(sheet -> sheet.lines.filter(whereClause))
             .map(line -> {
+                trace("each select line: " + Json.stringify(line));
                 var result = {};
-                for (field in Reflect.fields(fields)) {
-                    Reflect.setField(result, field, Reflect.field(line, field));
+                var returnAll: Bool = false;
+                for (eachField in fields) {
+                    if(eachField.all){
+                        returnAll = true;
+                        break;
+                    }
+                    Reflect.setField(result, eachField.field, Reflect.field(line, eachField.field));
+                }
+                if(returnAll){
+                    for (field in Reflect.fields(line)) {
+                        Reflect.setField(result, field, Reflect.field(line, field));
+                    }
                 }
                 return result;
             });
+        
+        return [
+            for(eachField in Reflect.fields(s[0])){
+                Reflect.field(s[0], eachField);
+            }
+        ];
     }
 
     public function delete(fromTable: String, whereClause: Dynamic -> Bool):Void {
@@ -65,7 +84,7 @@ class Querier {
                 if (table != null) {
                     var s = database.getSheet(table.name);
                     var o = s.newLine();
-                    for (field in Reflect.fields(o)) {
+                    for (field in Reflect.fields(val)) {
                         Reflect.setField(o, field, Reflect.field(val, field));
                     }
                 }
@@ -84,15 +103,16 @@ class Querier {
         return 0;
     }
 
-    public function createTable(tableName: String, fields: Dynamic):Void {
+    public function createTable(tableName: String, fields: Array<Column>):Void {
         data.sheets.push({
-            sheetType: "table",
+            sheetType: "Data Sheet",
             name: tableName,
             columns: fields,
             lines: [],
             props: {},
             separators: []
         });
+        database.syncbackData();
     }
 
     public function dropTable(tableName: String):Void {
@@ -117,7 +137,7 @@ class Querier {
         }
     }
 
-    public function getColumns(tableName: String):Dynamic {
+    public function getColumns(tableName: String):Array<Column> {
         var table = data.sheets.find(sheet -> sheet.name == tableName);
         if (table != null) {
             return table.columns;

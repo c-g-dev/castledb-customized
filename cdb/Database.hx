@@ -1074,7 +1074,7 @@ class Database {
 		for( c in sheet.columns )
 			switch( c.type ) {
 			case TList, TProperties:
-				deleteSheet(sheet.getSub(c));
+				deleteSheet(sheet.getSub(c), removeData);
 			default:
 			}
 		mapType(function(t) {
@@ -1088,10 +1088,12 @@ class Database {
 	public function syncbackData() {
 		for( s in sheets ){
 			//deleteSheet(s, false);
-			deleteSheet(s, true);
+			deleteSheet(s, false);
 		}
 		for( s in data.sheets ){
-			this.addSheet(s, data.sheets.indexOf(s));
+			var sobj = new Sheet(this, s);
+			sobj.sync();
+			sheets.insert(data.sheets.indexOf(s), sobj);
 		}
 		this.save();
 	}

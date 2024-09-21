@@ -20,7 +20,7 @@ import cdb.Data;
 import cdb.Sheet;
 
 typedef LayerState = {
-	var current : Int;
+	var currentSelection : Int;
 	var visible : Bool;
 	var lockGrid : Bool;
 	var lock : Bool;
@@ -50,9 +50,9 @@ class LayerData extends LayerGfx {
 	public var lock : Bool = false;
 	public var dirty : Bool;
 
-	public var current(default, set) : Int = 0;
-	public var currentWidth : Int = 1;
-	public var currentHeight : Int = 1;
+	public var currentSelection(default, set) : Int = 0;
+	public var currentSelectionWidth : Int = 1;
+	public var currentSelectionHeight : Int = 1;
 	public var comp : js.jquery.JQuery;
 
 	public var baseSheet : Sheet;
@@ -104,11 +104,11 @@ class LayerData extends LayerGfx {
 			visible = state.visible;
 			lock = !!state.lock;
 			floatCoord = hasFloatCoord && !state.lockGrid;
-			if( state.current < (images != null ? images.length : names.length) ) {
-				current = state.current;
-				if( (current%stride) + state.cw <= stride && Std.int(current/stride) + state.ch <= height ) {
-					currentWidth = state.cw;
-					currentHeight = state.ch;
+			if( state.currentSelection < (images != null ? images.length : names.length) ) {
+				currentSelection = state.currentSelection;
+				if( (currentSelection%stride) + state.cw <= stride && Std.int(currentSelection/stride) + state.ch <= height ) {
+					currentSelectionWidth = state.cw;
+					currentSelectionHeight = state.ch;
 				}
 			}
 		}
@@ -129,7 +129,7 @@ class LayerData extends LayerGfx {
 	public function getTileProp( mode ) {
 		if( tileProps == null ) return null;
 		for( s in tileProps.sets )
-			if( s.x + s.y * stride == current && s.t == mode )
+			if( s.x + s.y * stride == currentSelection && s.t == mode )
 				return s;
 		return null;
 	}
@@ -145,11 +145,11 @@ class LayerData extends LayerGfx {
 
 	public function getSelObjects() {
 		if( tileProps == null ) return [];
-		var x = current % stride;
-		var y = Std.int(current / stride);
+		var x = currentSelection % stride;
+		var y = Std.int(currentSelection / stride);
 		var out = [];
 		for( o in tileProps.sets )
-			if( o.t == Object && !(o.x >= x + currentWidth || o.y >= y + currentHeight || o.x + o.w <= x || o.y + o.h <= y) )
+			if( o.t == Object && !(o.x >= x + currentSelectionWidth || o.y >= y + currentSelectionHeight || o.x + o.w <= x || o.y + o.h <= y) )
 				out.push(o);
 		return out;
 	}
@@ -246,20 +246,20 @@ class LayerData extends LayerGfx {
 		return v;
 	}
 
-	function set_current(v) {
-		current = v;
-		currentWidth = 1;
-		currentHeight = 1;
+	function set_currentSelection(v) {
+		currentSelection = v;
+		currentSelectionWidth = 1;
+		currentSelectionHeight = 1;
 		saveState();
 		return v;
 	}
 
-	function setCurrent(id, w, h) {
-		if( current == id && currentWidth == w && currentHeight == h )
+	function setCurrentSelection(id, w, h) {
+		if( currentSelection == id && currentSelectionWidth == w && currentSelectionHeight == h )
 			return;
-		Reflect.setField(this, "current", id);
-		currentWidth = w;
-		currentHeight = h;
+		Reflect.setField(this, "currentSelection", id);
+		currentSelectionWidth = w;
+		currentSelectionHeight = h;
 		saveState(false);
 	}
 
@@ -273,7 +273,7 @@ class LayerData extends LayerGfx {
 					if( l != this ) {
 						switch( l.data ) {
 						case Tiles(t2, _), TileInstances(t2, _) if( t2.file == t.file ):
-							l.setCurrent(current, currentWidth, currentHeight);
+							l.setCurrentSelection(currentSelection, currentSelectionWidth, currentSelectionHeight);
 						default:
 						}
 					}
@@ -281,12 +281,12 @@ class LayerData extends LayerGfx {
 			}
 		}
 		var s : LayerState = {
-			current : current,
+			currentSelection : currentSelection,
 			visible : visible,
 			lock : lock,
 			lockGrid : hasFloatCoord && !floatCoord,
-			cw : currentWidth,
-			ch : currentHeight,
+			cw : currentSelectionWidth,
+			ch : currentSelectionHeight,
 		};
 		js.Browser.getLocalStorage().setItem(level.sheetPath + ":" + name, haxe.Serializer.run(s));
 	}

@@ -768,7 +768,7 @@ class Main extends Model {
 			for(eachField in Reflect.fields(line)){
 				Reflect.setField(duplicated, eachField, Reflect.field(duplicated, eachField));
 			}*/
-			sheet.copyLine(index, sheet.lines[index]);
+			sheet.copyLine(index);
 			refresh();
 			save();
 

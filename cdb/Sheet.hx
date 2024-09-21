@@ -16,6 +16,8 @@
 package cdb;
 import cdb.Data;
 
+using ludi.commons.extensions.All;
+
 typedef SheetIndex = { id : String, disp : String, ico : cdb.Types.TilePos, obj : Dynamic }
 
 class Sheet {
@@ -191,12 +193,11 @@ class Sheet {
 		}
 	}
 
-	public function copyLine( ?index : Int, toCopy: Dynamic ) {
-		var o = {
-		};
-		for( c in sheet.columns ) {
-			Reflect.setField(o, c.name, Reflect.field(toCopy, c.name));
-		}
+	public function copyLine( index : Int) {
+		@:privateAccess var data = Parser.save(this.base.data);
+		var parsed = Parser.parse(data, true);
+		var s = parsed.sheets.find(s -> s.name == sheet.name);
+		var o = s.lines[index];
 		if( index == null )
 			sheet.lines.push(o);
 		else {
