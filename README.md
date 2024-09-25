@@ -55,6 +55,13 @@ The normal pallete component just literally renders the image of the tileset, wh
 
 Also, you can now right-click eyedrop entire selections.
 
+### Generate Schema / Generate Source
+
+Added plugins for generating a schema .cdb for the currently open database. And also a code generator to export the schema as Haxe classes - complete with a parser.
+
+![image](https://github.com/user-attachments/assets/4e59917f-5719-4ed8-a2c6-65a4c9de475f)
+
+The public release will actually be coming very soon. I just need to clean up the existing code. Stay tuned!
 
 # dazKind's documentation:
 
